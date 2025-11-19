@@ -1,0 +1,504 @@
+/* === DARK MODE CSS VARIABLES === */
+:root {
+  --bg-primary: #f9f9f9;
+  --bg-card: #ffffff;
+  --text-primary: #333;
+  --text-muted: #999;
+  --border-color: #e0e0e0;
+  --sidebar-bg: #f4f4f4;
+  --sidebar-border: #ddd;
+}
+
+body.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-card: #2a2a2a;
+  --text-primary: #f0f0f0;
+  --text-muted: #999;
+  --border-color: #444;
+  --sidebar-bg: #1f1f1f;
+  --sidebar-border: #444;
+}
+
+/* === GLOBAL === */
+body {
+  background-color: var(--bg-primary);
+  font-family: "Inter", sans-serif;
+  margin: 0;
+  padding: 0;
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* === SIDEBAR === */
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0 0 20px 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Mobile responsiveness for sidebar */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 250px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main {
+    margin-left: 0 !important;
+  }
+}
+
+/* === LOGO CLARIO === */
+.logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 20px;
+}
+
+.logo {
+  width: 45px;
+  height: auto;
+}
+
+.logo-text {
+  font-family: "Krona One", sans-serif;
+  font-size: 24px;
+  color: #333;
+  letter-spacing: 1px;
+}
+
+/* Mobile adjustments for logo */
+@media (max-width: 768px) {
+  .logo-container {
+    justify-content: flex-start;
+    padding-left: 20px;
+  }
+  .logo-text {
+    font-size: 20px;
+  }
+  .logo {
+    width: 35px;
+  }
+}
+
+.logo-text .teal,
+.logo-text .text-teal,
+.text-teal {
+  color: #007364 !important;
+}
+
+/* === TOMBOL UPLOAD === */
+.upload-btn {
+  background-color: #ffffff;
+  color: #000;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 85%;
+  margin: 10px auto 20px auto;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s ease;
+}
+
+.upload-btn:hover {
+  background-color: #e9fafd;
+  transform: scale(1.03);
+}
+
+.upload-btn i {
+  font-size: 18px; /* ukuran ikon “+” */
+}
+
+/* Mobile adjustments for upload button */
+@media (max-width: 768px) {
+  .upload-btn {
+    width: 90%;
+    font-size: 12px;
+    padding: 5px 12px;
+  }
+  .upload-btn i {
+    font-size: 16px;
+  }
+}
+
+/* === NAVIGASI === */
+.sidebar .nav {
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar .nav-link {
+  color: var(--text-primary);
+  font-weight: 500;
+  border-radius: 0;
+  margin: 0;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.sidebar .nav-link.active,
+.sidebar .nav-link:hover {
+  border-left: 4px solid #00bfa6;
+  background-color: #c8ecef;
+  color: #0f5b69;
+}
+
+/* Mobile adjustments for navigation */
+@media (max-width: 768px) {
+  .sidebar .nav-link {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+  .sidebar .nav-link i {
+    font-size: 16px;
+  }
+}
+
+/* === PENYIMPANAN === */
+.storage-section {
+  padding: 0 20px;
+}
+
+.progress {
+  height: 6px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  background-color: #00bfa6;
+  border-radius: 10px;
+}
+
+/* === FILE CARD === */
+.file-card {
+  background: #fff5f5;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.file-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* === SEARCH BAR === */
+.search-bar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-bar input {
+  background-color: #d4dedf;
+  border: none;
+  color: #333;
+  border-radius: 50px;
+  padding: 8px 16px;
+  padding-right: 4rem; /* ruang kanan untuk ikon */
+  width: 300px;
+  transition: all 0.3s ease;
+}
+
+.search-bar input::placeholder {
+  color: #555;
+}
+
+.search-bar input:focus {
+  outline: none;
+  background-color: #c8d6d8;
+  box-shadow: 0 0 0 3px rgba(0, 191, 166, 0.3);
+}
+
+/* Mobile adjustments for search bar */
+@media (max-width: 768px) {
+  .search-bar input {
+    width: 200px;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+}
+
+/* === IKON DALAM SEARCH BAR === */
+.search-bar .list-icon {
+  position: absolute;
+  right: 1.6rem;
+  font-size: 1.15rem;
+  color: #4a4a4a;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  z-index: 2;
+}
+
+.search-bar .list-icon:hover {
+  color: #00bfa6;
+}
+
+/* === IKON LUAR (GEAR & USER) === */
+.gear-icon {
+  font-size: 1.2rem;
+  color: #4a4a4a;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.gear-icon:hover {
+  color: #00bfa6;
+}
+
+.user-icon {
+  font-size: 1.05rem;
+  color: #333;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.user-icon:hover {
+  color: #00bfa6;
+}
+
+/* === APP BAR / HEADER === */
+.app-bar {
+  padding: 0.25rem 0;
+}
+
+.app-bar .home .search-bar {
+  margin-left: 0.75rem;
+}
+
+.header-section {
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 10px;
+}
+
+/* Mobile adjustments for header */
+@media (max-width: 768px) {
+  .header-section {
+    padding: 10px;
+  }
+  .header-section h4 {
+    font-size: 18px;
+  }
+  .header-section p {
+    font-size: 14px;
+  }
+}
+
+/* === VIEW TOGGLE (GRID / LIST) === */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #000;
+  border-radius: 50px;
+  background-color: #fff;
+  padding: 3px;
+  width: fit-content;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  border-radius: 50px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.active {
+  background-color: #c4eded;
+}
+
+.toggle-btn:hover {
+  background-color: #e9fafa;
+}
+
+/* Mobile adjustments for view toggle */
+@media (max-width: 768px) {
+  .view-toggle {
+    padding: 2px;
+  }
+  .toggle-btn {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+}
+
+/* (untuk tombol Bootstrap jika masih dipakai di bagian lain) */
+.view-switch .btn {
+  border-radius: 10px;
+  transition: 0.2s;
+}
+
+.view-switch .btn.active,
+.view-switch .btn:hover {
+  background-color: #0dcaf0;
+  color: white;
+}
+
+/* === DARK MODE STYLING FOR ALL ELEMENTS === */
+body.dark-mode .file-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+body.dark-mode .card,
+body.dark-mode .modal-content,
+body.dark-mode .form-control,
+body.dark-mode textarea {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+body.dark-mode table {
+  color: var(--text-primary);
+}
+
+body.dark-mode thead {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode tbody tr {
+  border-color: var(--border-color) !important;
+}
+
+body.dark-mode tbody tr:hover {
+  background-color: var(--bg-card) !important;
+}
+
+body.dark-mode .search-bar input {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .search-bar input::placeholder {
+  color: var(--text-muted);
+}
+
+body.dark-mode .search-bar input:focus {
+  background-color: var(--bg-card);
+  border-color: #0dcaf0;
+}
+
+body.dark-mode .header-section {
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .view-toggle {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .more-menu {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.dark-mode .more-menu .more-item:hover {
+  background: var(--bg-primary) !important;
+}
+
+body.dark-mode .storage {
+  color: var(--text-primary);
+}
+
+body.dark-mode .text-muted {
+  color: var(--text-muted) !important;
+}
+
+body.dark-mode .modal-header {
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .modal-footer {
+  border-top-color: var(--border-color);
+}
+
+body.dark-mode .btn-outline-primary,
+body.dark-mode .btn-outline-secondary,
+body.dark-mode .btn-outline-info {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .btn-outline-primary:hover {
+  background-color: #0dcaf0;
+  border-color: #0dcaf0;
+  color: #000;
+}
+
+body.dark-mode .progress {
+  background-color: var(--border-color);
+}
+
+/* === MAIN CONTENT === */
+.main {
+  margin-left: 260px;
+  padding: 20px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  width: calc(100% - 260px);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* === MAIN CONTENT MOBILE ADJUSTMENTS === */
+@media (max-width: 768px) {
+  .main {
+    margin-left: 0 !important;
+    padding: 20px 10px;
+    width: 100% !important;
+  }
+  .main h4 {
+    font-size: 20px;
+  }
+  .main p {
+    font-size: 14px;
+  }
+}
+
+/* === FILE CARDS MOBILE ADJUSTMENTS === */
+@media (max-width: 768px) {
+  .file-card {
+    margin-bottom: 10px;
+  }
+  .file-name {
+    font-size: 12px !important;
+  }
+  .file-size {
+    font-size: 10px !important;
+  }
+}
