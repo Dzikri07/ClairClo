@@ -121,8 +121,11 @@ private $pass = '';             // Database password
 ## Penggunaan
 
 ### Login Admin
-- Username: admin (atau sesuai seed data)
+- Username: admin 
 - Password: admin123
+
+- user
+- user3123
 
 ### Upload File
 1. Login ke aplikasi
