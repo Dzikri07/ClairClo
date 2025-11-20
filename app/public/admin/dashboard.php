@@ -42,6 +42,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'users') {
 if (isset($_GET['export']) && $_GET['export'] === 'logs') {
     $logs = fetchAll("SELECT al.*, u.username FROM activity_logs al LEFT JOIN users u ON al.admin_id = u.id ORDER BY al.created_at DESC LIMIT 1000");
     
+    // Check if logs are empty
+    if (empty($logs)) {
+        $_SESSION['export_error'] = 'Tidak ada data log untuk diekspor. Database log kosong.';
+        header('Location: dashboard.php');
+        exit;
+    }
+    
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="activity_logs_' . date('Y-m-d_H-i-s') . '.csv"');
     
@@ -75,12 +82,14 @@ $allUsers = fetchAll("
 // Calculate statistics
 $totalUsedRow = fetchOne('SELECT COALESCE(SUM(storage_used),0) as total_used FROM users WHERE is_admin = 0');
 $totalUsed = intval($totalUsedRow['total_used'] ?? 0);
-$totalQuota = 100 * 1024 * 1024 * 1024;
+$storageLimitRow = fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'storage_limit'");
+$totalQuota = intval($storageLimitRow['setting_value'] ?? 0);
 $totalUsers = count($allUsers);
 $totalFiles = fetchOne('SELECT COUNT(*) as cnt FROM files WHERE is_trashed = 0');
 $totalFiles = intval($totalFiles['cnt'] ?? 0);
 $pendingRequests = fetchOne('SELECT COUNT(*) as cnt FROM storage_requests WHERE status = "pending"');
 $pendingRequests = intval($pendingRequests['cnt'] ?? 0);
+$safeQuota = ($totalQuota > 0) ? $totalQuota : 1;
 
 function formatBytes($bytes) {
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -173,6 +182,13 @@ if (localStorage.getItem('theme') === 'dark') {
     <?php include __DIR__ . '/../sidebar.php'; ?>
 
     <div class="main flex-grow-1 p-4">
+        <?php if (isset($_SESSION['export_error'])): ?>
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fa fa-exclamation-triangle me-2"></i><?php echo htmlspecialchars($_SESSION['export_error']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['export_error']); ?>
+        <?php endif; ?>
         <div class="mb-4">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
@@ -202,8 +218,19 @@ if (localStorage.getItem('theme') === 'dark') {
             <div class="col-lg-3">
                 <div class="stat-card" onclick="window.location.href='storage_server.php'" role="button" tabindex="0">
                     <h6 style="color: var(--text-muted); margin-bottom: 5px;">Penyimpanan Terpakai</h6>
-                    <h3><?php echo round(($totalUsed / $totalQuota) * 100, 1); ?>%</h3>
-                    <p><?php echo formatBytes($totalUsed); ?> / <?php echo formatBytes($totalQuota); ?></p>
+                  <?php
+                $percentUsed = ($totalQuota > 0)
+                    ? round(($totalUsed / $totalQuota) * 100, 1)
+                    : 0;
+                ?>
+
+                <h3><?php echo $percentUsed; ?>%</h3>
+
+                <p>
+                    <?php echo formatBytes($totalUsed); ?> /
+                    <?php echo ($totalQuota > 0 ? formatBytes($totalQuota) : "Unlimited"); ?>
+                </p>
+
                 </div>
             </div>
             <div class="col-lg-3">

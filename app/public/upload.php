@@ -34,6 +34,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	}
 
 	// Check if file was uploaded
+	// Helper: convert php size strings like "8M" to bytes
+	function parsePhpSizeToBytes($size) {
+		$size = trim($size);
+		$unit = strtolower(substr($size, -1));
+		$number = (int) $size;
+		switch ($unit) {
+			case 'g':
+				return $number * 1024 * 1024 * 1024;
+			case 'm':
+				return $number * 1024 * 1024;
+			case 'k':
+				return $number * 1024;
+			default:
+				return (int) $size;
+		}
+	}
+
+	// If POST body was dropped due to post_max_size, PHP will have empty $_FILES/$_POST.
+	// Detect by comparing CONTENT_LENGTH to post_max_size and return a clear JSON error.
+	if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+		$contentLength = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+		$postMax = parsePhpSizeToBytes(ini_get('post_max_size'));
+			if ($contentLength > 0 && $contentLength > $postMax && !isset($_FILES['upload_file'])) {
+				$error = 'Uploaded data exceeds server post_max_size (' . ini_get('post_max_size') . ')';
+				if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
+					header('Content-Type: application/json');
+					http_response_code(413);
+					die(json_encode(['success' => false, 'message' => $error]));
+				}
+				header('Location: semuafile.php?upload=error&msg=' . urlencode($error));
+				exit;
+			}
+	}
+
+	// Check if file was uploaded
 	if (!isset($_FILES['upload_file'])) {
 		$error = 'No file selected';
 		if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {

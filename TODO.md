@@ -1,0 +1,3 @@
+- [ ] Add category filter dropdown to search bar in index.php
+- [ ] Update JavaScript to include category filtering logic
+- [ ] Test the enhanced search functionality

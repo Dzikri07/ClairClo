@@ -1,6 +1,132 @@
 <?php
 // file_functions.php - helper functions for file listing and upload
 
+/**
+ * Check if current user is an admin
+ * @return bool
+ */
+function is_admin()
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        @session_start();
+    }
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+}
+
+/**
+ * Get all files for a specific user
+ * @param int|null $userId
+ * @return array
+ */
+function get_user_files($userId)
+{
+    if (!$userId) {
+        return [];
+    }
+    
+    try {
+        $pdo = getDB();
+        $stmt = $pdo->prepare("
+            SELECT f.*, u.username AS owner,
+                   CASE 
+                       WHEN f.mime LIKE 'image/%' THEN 'image'
+                       WHEN f.mime LIKE 'video/%' THEN 'video'
+                       WHEN f.mime LIKE 'application/pdf' OR f.mime LIKE 'application/msword' OR f.mime LIKE 'application/vnd%' THEN 'document'
+                       ELSE 'other'
+                   END AS category,
+                   CASE 
+                       WHEN f.mime LIKE 'image/%' THEN 'image.svg'
+                       WHEN f.mime LIKE 'video/%' THEN 'video.svg'
+                       WHEN f.mime LIKE 'application/pdf' OR f.mime LIKE 'application/msword' OR f.mime LIKE 'application/vnd%' THEN 'doc.svg'
+                       ELSE 'file.svg'
+                   END AS icon
+            FROM files f 
+            JOIN users u ON f.user_id = u.id 
+            WHERE f.user_id = ? AND f.is_trashed = 0 
+            ORDER BY f.modified_at DESC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error in get_user_files: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get all files (admin view)
+ * @return array
+ */
+function get_all_files()
+{
+    try {
+        $pdo = getDB();
+        $stmt = $pdo->query("
+            SELECT f.*, u.username AS owner,
+                   CASE 
+                       WHEN f.mime LIKE 'image/%' THEN 'image'
+                       WHEN f.mime LIKE 'video/%' THEN 'video'
+                       WHEN f.mime LIKE 'application/pdf' OR f.mime LIKE 'application/msword' OR f.mime LIKE 'application/vnd%' THEN 'document'
+                       ELSE 'other'
+                   END AS category,
+                   CASE 
+                       WHEN f.mime LIKE 'image/%' THEN 'image.svg'
+                       WHEN f.mime LIKE 'video/%' THEN 'video.svg'
+                       WHEN f.mime LIKE 'application/pdf' OR f.mime LIKE 'application/msword' OR f.mime LIKE 'application/vnd%' THEN 'doc.svg'
+                       ELSE 'file.svg'
+                   END AS icon
+            FROM files f 
+            JOIN users u ON f.user_id = u.id 
+            WHERE f.is_trashed = 0 
+            ORDER BY f.modified_at DESC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error in get_all_files: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get favorite files for a specific user
+ * @param int|null $userId
+ * @return array
+ */
+function get_favorite_files_for_user($userId)
+{
+    if (!$userId) {
+        return [];
+    }
+    
+    try {
+        $pdo = getDB();
+        $stmt = $pdo->prepare("
+            SELECT f.*, u.username AS owner,
+                   CASE 
+                       WHEN f.mime LIKE 'image/%' THEN 'image'
+                       WHEN f.mime LIKE 'video/%' THEN 'video'
+                       WHEN f.mime LIKE 'application/pdf' OR f.mime LIKE 'application/msword' OR f.mime LIKE 'application/vnd%' THEN 'document'
+                       ELSE 'other'
+                   END AS category,
+                   CASE 
+                       WHEN f.mime LIKE 'image/%' THEN 'image.svg'
+                       WHEN f.mime LIKE 'video/%' THEN 'video.svg'
+                       WHEN f.mime LIKE 'application/pdf' OR f.mime LIKE 'application/msword' OR f.mime LIKE 'application/vnd%' THEN 'doc.svg'
+                       ELSE 'file.svg'
+                   END AS icon
+            FROM files f 
+            JOIN users u ON f.user_id = u.id 
+            WHERE f.user_id = ? AND f.is_trashed = 0 AND f.is_favorite = 1
+            ORDER BY f.modified_at DESC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error in get_favorite_files_for_user: " . $e->getMessage());
+        return [];
+    }
+}
+
 function get_upload_dir()
 {
     // Prefer per-user upload directory when session user_id is available

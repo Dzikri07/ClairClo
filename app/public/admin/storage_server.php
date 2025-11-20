@@ -2,6 +2,8 @@
 session_start();
 require_once __DIR__ . '/../connection.php';
 
+// Tambahkan ini:
+$pdo = getDB();
 // Admin only
 if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
@@ -34,6 +36,41 @@ function humanBytes($bytes) {
     $units = ['B','KB','MB','GB','TB'];
     $i = floor(log($bytes,1024));
     return round($bytes/pow(1024,$i),2) . ' ' . $units[$i];
+}
+// Storage limit (from settings)
+$limitRow = fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'storage_limit'");
+$storageLimit = isset($limitRow['setting_value']) ? intval($limitRow['setting_value']) : 0; // bytes
+
+// Hitung sisa
+$storageRemaining = ($storageLimit > 0)
+    ? max($storageLimit - $totalStorageUsed, 0)
+    : 0;
+
+// Hitung persentase
+$percentUsed = ($storageLimit > 0)
+    ? ($totalStorageUsed / $storageLimit) * 100
+    : 0;
+
+// Display aturan persentase
+if ($percentUsed > 0 && $percentUsed < 0.1) {
+    $percentUsedDisplay = "0.1%";
+} else {
+    $percentUsedDisplay = round($percentUsed, 2) . "%";
+}
+// Update storage limit
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['limit_value'], $_POST['limit_unit'])) {
+    $value = intval($_POST['limit_value']);
+    $unit = $_POST['limit_unit'];
+
+    $bytes = ($unit === 'TB')
+        ? $value * 1024 * 1024 * 1024 * 1024
+        : $value * 1024 * 1024 * 1024;
+
+    $stmt = $pdo->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = 'storage_limit'");
+    $stmt->execute([$bytes]);
+
+    header("Location: storage_server.php");
+    exit;
 }
 
 ?>
@@ -82,6 +119,23 @@ function humanBytes($bytes) {
                 </div>
             </div>
         </div>
+        <div class="col-md-3">
+    <div class="card p-3 shadow-sm">
+        <h6 class="mb-1">Total Alokasi</h6>
+
+        <div class="fw-bold">
+            <?php 
+                echo $storageLimit ? humanBytes($storageLimit) : "Unlimited";
+            ?>
+        </div>
+
+        <small class="text-muted">
+            Sisa: <?php echo $storageLimit ? humanBytes($storageRemaining) : "∞"; ?><br>
+            Terpakai: <?php echo $percentUsedDisplay; ?>
+        </small>
+    </div>
+</div>
+
 
         <div class="row">
             <div class="col-lg-6 mb-4">
@@ -126,6 +180,40 @@ function humanBytes($bytes) {
                 </div>
             </div>
         </div>
+<div class="col-lg-6 mb-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white fw-bold">
+            Kelola Alokasi Storage
+        </div>
+
+        <div class="card-body">
+            <form method="POST" action="">
+                <label class="form-label">Tambah Storage</label>
+                <div class="input-group mb-3">
+                    <input type="number" name="limit_value" class="form-control" placeholder="Angka" required>
+                    <select name="limit_unit" class="form-select">
+                        <option value="GB">GB</option>
+                        <option value="TB">TB</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary w-100">
+                    <i class="fa fa-save me-1"></i> Tambah Alokasi
+                </button>
+            </form>
+            <hr>
+
+            <small class="text-muted">
+                Total Alokasi Saat Ini:
+                <strong><?php echo $storageLimit ? humanBytes($storageLimit) : "Unlimited"; ?></strong><br>
+                Sisa:
+                <strong><?php echo $storageLimit ? humanBytes($storageRemaining) : "∞"; ?></strong><br>
+                Terpakai:
+                <strong><?php echo $percentUsedDisplay; ?></strong>
+            </small>
+        </div>
+    </div>
+</div>
 
         <div class="card shadow-sm">
             <div class="card-header bg-white">Recent Activity (Uploads)</div>

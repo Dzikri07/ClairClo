@@ -1,14 +1,165 @@
-/* Centralized application styles (initial placeholder) */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-  background: #f8f9fa;
-}
-.sidebar img { max-width: 100%; height: auto; }
-.fav-btn.active i.fa-star { color: #ffc107; }
+/* ========================================
+   CENTRALIZED APPLICATION STYLES
+   ======================================== */
 
-/* Responsive placeholders */
-@media (max-width:768px){
-  #file-grid.grid-view-mode{ grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap:12px; }
+/* === GLOBAL RESET === */
+* {
+  box-sizing: border-box !important;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #f8f9fa;
+  margin: 0;
+  padding: 0;
+}
+
+.sidebar img { 
+  max-width: 100%; 
+  height: auto; 
+}
+
+/* === FILE NAME TRUNCATION === */
+.file-name-truncate {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  display: block !important;
+}
+
+.file-name-multiline {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  word-break: break-word !important;
+  max-width: 100%;
+}
+
+/* === FAVORITE BUTTON === */
+.fav-btn.active i.fa-star { 
+  color: #ffc107; 
+}
+
+.fav-inline {
+  position: absolute;
+  right: 12px;
+  top: 48px;
+  background: transparent;
+  border: none;
+  color: #bdbdbd;
+  font-size: 18px;
+  z-index: 30;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.fav-inline:hover { 
+  color: #ffdd57; 
+}
+
+.fav-inline.active i.fa-star { 
+  color: #ffc107; 
+}
+
+/* === FILE LIST HEADER (for list view) === */
+.file-list-header {
+  display: none;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.file-list-header .col {
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-list-header .col-name { flex: 1.8; min-width: 220px; }
+.file-list-header .col-owner { flex: 0.8; min-width: 120px; }
+.file-list-header .col-modified { flex: 1.0; min-width: 140px; }
+.file-list-header .col-size { flex: 0.6; min-width: 90px; text-align: right; }
+.file-list-header .col-actions { flex: 0.4; min-width: 80px; text-align: center; }
+
+#file-grid.list-view-mode > .file-list-header { 
+  display: flex; 
+}
+
+/* === FILE ROW COLUMNS (for list view) === */
+.file-row-columns { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  width: 100%; 
+}
+
+.file-row-columns .col { 
+  padding: 0 8px; 
+}
+
+.file-row-columns .col-name { 
+  flex: 1.8; 
+  min-width: 220px; 
+}
+
+.file-row-columns .col-owner { 
+  flex: 0.8; 
+  min-width: 120px; 
+  color: var(--text-muted); 
+}
+
+.file-row-columns .col-modified { 
+  flex: 1.0; 
+  min-width: 140px; 
+  color: var(--text-muted); 
+}
+
+.file-row-columns .col-size { 
+  flex: 0.6; 
+  min-width: 90px; 
+  text-align: right; 
+  color: var(--text-muted); 
+}
+
+.file-row-columns .col-actions { 
+  flex: 0.4; 
+  min-width: 80px; 
+  text-align: center; 
+}
+
+/* === MORE BUTTON IN LIST VIEW === */
+#file-grid.list-view-mode .more-btn { 
+  background: transparent; 
+  border: none; 
+  padding: 6px 8px; 
+  color: var(--text-muted); 
+  cursor: pointer;
+}
+
+#file-grid.list-view-mode .more-btn:hover {
+  color: var(--text-primary);
+}
+
+#file-grid.list-view-mode .more-btn i { 
+  font-size: 16px; 
+}
+
+/* === ICON FALLBACK === */
+.file-card-inner img.icon-fallback { 
+  width: 48px; 
+  height: 48px; 
+  object-fit: contain; 
 }
 /* === DARK MODE CSS VARIABLES === */
 :root {
@@ -85,6 +236,15 @@ body {
   justify-content: center;
   gap: 8px;
   padding-top: 20px;
+}
+
+.logo-text {
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+body.dark-mode .logo-text {
+  color: #ffffff;
 }
 
 .logo {
@@ -301,12 +461,57 @@ body {
 
 /* === APP BAR / HEADER === */
 .app-bar {
-  padding: 0.25rem 0;
+  padding: 0; 
+  position: fixed;
+  left: 260px;
+  right: 0;
+  top: 0;
+  height: 64px;
+  z-index: 1050;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+}
+.app-bar .app-bar-inner { width: 100%; padding: 0 18px; display:flex; align-items:center; }
+.app-bar .app-bar-left { display:flex; align-items:center; gap:8px; }
+.app-bar .app-bar-center { padding: 0 12px; }
+.app-bar .app-bar-right { display:flex; align-items:center; gap:8px; }
+
+.app-bar .search-bar { position: relative; width: 100%; }
+.app-bar .search-bar input { width: 100%; padding: 10px 44px 10px 16px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--bg-primary); }
+.app-bar .list-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border-radius: 999px; border: none; background: transparent; color: var(--text-primary); }
+.app-bar .list-toggle .list-icon { font-size: 16px; }
+
+/* ensure main content sits below fixed app-bar */
+.main { padding-top: 80px; }
+
+/* Hide page-local search controls when global app-bar is present to avoid duplication */
+/* But allow on index.php which doesn't have global app-bar */
+.header-section .search-bar,
+.header-controls .search-bar {
+  display: none !important;
 }
 
-.app-bar .home .search-bar {
-  margin-left: 0.75rem;
+/* Show search bar on index.php */
+body#index-page .header-controls .search-bar {
+  display: flex !important;
 }
+
+/* Hide stray star icon in app-bar if present (prevents duplicate star in navbar) */
+.app-bar .fa-star,
+.app-bar .star-icon {
+  display: none !important;
+}
+
+/* Ensure list-toggle is on top and clickable */
+.app-bar .list-toggle {
+  z-index: 2000;
+  cursor: pointer;
+}
+
+/* Give header-section a small top margin so title doesn't collide with fixed app-bar */
+.header-section { margin-top: 6px; }
 
 .header-section {
   border-bottom: 1px solid #e0e0e0;
@@ -352,6 +557,245 @@ body {
 
 .toggle-btn:hover {
   background-color: #e9fafa;
+}
+
+/* Grid / List view modes for file grid */
+#file-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+  gap: 16px !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+#file-grid.list-view-mode {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+#file-grid.list-view-mode .file-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px 16px !important;
+  width: 100% !important;
+}
+
+#file-grid.list-view-mode .file-card {
+  display: flex !important;
+  align-items: center !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  padding: 0 !important;
+  width: auto !important;
+  flex: 1 !important;
+  border-radius: 0 !important;
+  height: auto !important;
+}
+
+#file-grid.grid-view-mode .file-item {
+  display: block !important;
+}
+
+#file-grid.grid-view-mode .file-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+#file-grid.list-view-mode .file-thumb {
+  flex-shrink: 0 !important;
+  width: 50px !important;
+  height: 50px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#file-grid.list-view-mode .file-name-multiline {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex-grow: 1 !important;
+  margin: 0 !important;
+}
+
+/* Grid view card styling */
+#file-grid.grid-view-mode .file-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  height: 100%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+#file-grid.grid-view-mode .file-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+#file-grid.grid-view-mode .file-card:hover .card-overlay {
+  opacity: 1;
+  display: flex;
+}
+
+/* File card inner (image/icon area) */
+.file-card-inner {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.file-card-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* File thumbnail */
+.file-thumbnail {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-thumbnail img {
+  max-width: 80%;
+  max-height: 80%;
+  object-fit: contain;
+}
+
+/* More button (ellipsis) */
+.more-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.more-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+/* File info (name and size) */
+.file-info {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  color: #222;
+}
+
+.file-size {
+  margin: 0;
+  font-size: 11px;
+  color: #999;
+  margin-top: auto;
+}
+
+#file-grid.grid-view-mode .file-thumb {
+  min-height: 80px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+#file-grid.grid-view-mode .file-name {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+#file-grid.grid-view-mode .file-size {
+  font-size: 11px;
+  color: #999;
+}
+
+/* List view card styling */
+#file-grid.list-view-mode .file-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+#file-grid.list-view-mode .file-card:hover {
+  background: #f9f9f9;
+}
+
+/* Dark mode support */
+body.dark-mode #file-grid.grid-view-mode .file-card {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+body.dark-mode #file-grid.grid-view-mode .file-card-inner {
+  background: #333;
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .file-card-inner {
+  background: #333;
+}
+
+body.dark-mode #file-grid.list-view-mode .file-card {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+body.dark-mode #file-grid.list-view-mode .file-card:hover {
+  background: var(--bg-primary);
+}
+
+body.dark-mode .file-name {
+  color: var(--text-primary);
+}
+
+body.dark-mode .file-size {
+  color: var(--text-muted);
 }
 
 /* Mobile adjustments for view toggle */
@@ -512,5 +956,206 @@ body.dark-mode .progress {
   }
   .file-size {
     font-size: 10px !important;
+  }
+}
+
+/* === SEARCH AND FILTER INPUTS === */
+#file-search-input {
+  width: 260px !important;
+  max-width: 100%;
+  display: block !important;
+  padding: 8px 12px !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  background-color: #f5f5f5 !important;
+  font-size: 14px !important;
+  box-sizing: border-box !important;
+}
+
+#file-search-input:focus {
+  outline: none !important;
+  border-color: #007bff !important;
+  background-color: #fff !important;
+}
+
+#category-filter {
+  width: 150px !important;
+  max-width: 100%;
+  display: block !important;
+  padding: 8px 12px !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  background-color: #fff !important;
+  font-size: 14px !important;
+  box-sizing: border-box !important;
+  cursor: pointer;
+}
+
+#category-filter:focus {
+  outline: none !important;
+  border-color: #007bff !important;
+}
+
+/* Header controls container */
+.header-section > div:last-child {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+
+/* Shared styles for search bar */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #f5f5f5;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.search-bar input {
+  flex-grow: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Shared styles for category filter */
+.category-filter,
+select.form-select {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: #fff;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.category-filter:focus,
+select.form-select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+/* Shared styles for view switcher */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.view-toggle .toggle-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.view-toggle .toggle-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.view-toggle .toggle-btn.active {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.view-toggle .toggle-btn.active:hover {
+  background-color: #0056b3;
+}
+
+/* Shared styles for file row */
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-card);
+}
+
+.file-row .file-name {
+  flex-grow: 1;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.file-row .file-owner,
+.file-row .file-date,
+.file-row .file-size {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.file-row .file-more {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* === MOBILE RESPONSIVE ADJUSTMENTS === */
+@media (max-width: 768px) {
+  #file-search-input {
+    width: 200px !important;
+    font-size: 13px !important;
+  }
+  
+  #category-filter {
+    width: 130px !important;
+    font-size: 13px !important;
+  }
+  
+  .header-section > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  #file-search-input {
+    width: 100% !important;
+    min-width: 150px;
+  }
+  
+  #category-filter {
+    width: 100% !important;
+    min-width: 120px;
+  }
+  
+  .header-section > div:last-child {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  
+  .header-section > div:last-child > div:first-child {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .view-toggle {
+    width: 100%;
   }
 }

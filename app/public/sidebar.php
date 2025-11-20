@@ -178,29 +178,43 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .then(response => {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
-            return response.json();
+            // Always attempt to read response body (may contain JSON error message)
+            return response.text().then(text => ({ ok: response.ok, status: response.status, text }));
         })
-        .then(data => {
-            if (data.success) {
-                // Success notification
-                Swal.fire({
-                    title: 'Berhasil!',
-                    html: '<p class="mb-0">File <strong>' + escapeHtml(file.name) + '</strong> berhasil diunggah.</p>',
-                    icon: 'success',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#28a745'
-                }).then(() => {
-                    // Refresh current page to show new file
-                    window.location.reload();
-                });
+        .then(obj => {
+            var data = null;
+            try {
+                data = obj.text ? JSON.parse(obj.text) : null;
+            } catch (e) {
+                data = null;
+            }
+
+            if (obj.ok) {
+                if (data && data.success) {
+                    Swal.fire({
+                        title: 'Berhasil!',
+                        html: '<p class="mb-0">File <strong>' + escapeHtml(file.name) + '</strong> berhasil diunggah.</p>',
+                        icon: 'success',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#28a745'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Gagal!',
+                        html: '<p class="mb-0">' + escapeHtml((data && data.message) ? data.message : 'Terjadi kesalahan saat mengunggah file.') + '</p>',
+                        icon: 'error',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
             } else {
-                // Error from server
+                // Non-OK HTTP status — prefer server message if present
+                var msg = (data && data.message) ? data.message : ('Terjadi kesalahan jaringan: HTTP ' + obj.status);
                 Swal.fire({
                     title: 'Gagal!',
-                    html: '<p class="mb-0">' + escapeHtml(data.message || 'Terjadi kesalahan saat mengunggah file.') + '</p>',
+                    html: '<p class="mb-0">' + escapeHtml(msg) + '</p>',
                     icon: 'error',
                     confirmButtonText: 'OK',
                     confirmButtonColor: '#dc3545'
@@ -208,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .catch(error => {
-            // Network or parse error
+            // Network or other error
             Swal.fire({
                 title: 'Gagal!',
                 html: '<p class="mb-0">Terjadi kesalahan jaringan: ' + escapeHtml(error.message) + '</p>',

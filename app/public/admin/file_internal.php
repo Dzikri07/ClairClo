@@ -17,6 +17,30 @@ if (!is_dir($backupDir)) {
     @mkdir($backupDir, 0755, true);
 }
 
+// Handle delete operations BEFORE any output
+if (isset($_GET['delete'])) {
+    $d = basename($_GET['delete']);
+    $p = $internalDir . '/' . $d;
+    if (is_file($p)) {
+        unlink($p);
+        log_activity('DELETE_INTERNAL_FILE', "Deleted file: {$d}");
+        header('Location: file_internal.php');
+        exit;
+    }
+}
+
+// Handle delete backup
+if (isset($_GET['delete_backup'])) {
+    $d = basename($_GET['delete_backup']);
+    $p = $backupDir . '/' . $d;
+    if (is_file($p)) {
+        unlink($p);
+        log_activity('DELETE_BACKUP', "Deleted backup: {$d}");
+        header('Location: file_internal.php?tab=backup');
+        exit;
+    }
+}
+
 // Handle upload
 $message = null;
 $messageType = 'info';
@@ -67,6 +91,219 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         $message = 'File atau user tidak ditemukan.';
         $messageType = 'danger';
+    }
+}
+
+// Handle backup all user files
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_user') {
+    $userId = intval($_POST['user_id']);
+    $userFiles = fetchAll('SELECT id, original_name FROM files WHERE user_id = ? AND is_trashed = 0', [$userId]);
+    
+    $backupCount = 0;
+    foreach ($userFiles as $file) {
+        $storage = fetchOne('SELECT storage_path FROM file_storage_paths WHERE file_id = ?', [$file['id']]);
+        if ($storage && is_file($storage['storage_path'])) {
+            $backupName = date('Y-m-d_H-i-s') . '_user' . $userId . '_' . $file['original_name'];
+            $backupFile = $backupDir . '/' . preg_replace('/[^A-Za-z0-9._-]/', '_', $backupName);
+            
+            if (copy($storage['storage_path'], $backupFile)) {
+                $backupCount++;
+            }
+        }
+    }
+    
+    if ($backupCount > 0) {
+        log_activity('BACKUP_USER_FILES', "Backed up {$backupCount} file(s) from user {$userId}");
+        $message = "Berhasil backup {$backupCount} file dari user ini.";
+        $messageType = 'success';
+    } else {
+        $message = 'Tidak ada file yang berhasil dibackup.';
+        $messageType = 'warning';
+    }
+}
+
+// Handle backup users table SQL
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_users_sql') {
+    try {
+        $backupTimestamp = date('Y-m-d_H-i-s');
+        $backupName = "users_table_backup_{$backupTimestamp}.sql";
+        $backupPath = $backupDir . '/' . $backupName;
+        
+        // Get database connection details
+        global $pdo;
+        
+        // Get all users data
+        $users = fetchAll("SELECT * FROM users");
+        
+        if (empty($users)) {
+            throw new Exception('Tidak ada data user untuk dibackup.');
+        }
+        
+        // Create SQL dump
+        $sqlContent = "-- Users Table Backup\n";
+        $sqlContent .= "-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
+        $sqlContent .= "-- Table structure for users\n";
+        $sqlContent .= "CREATE TABLE IF NOT EXISTS `users` (\n";
+        $sqlContent .= "  `id` int(11) NOT NULL AUTO_INCREMENT,\n";
+        $sqlContent .= "  `username` varchar(50) NOT NULL,\n";
+        $sqlContent .= "  `email` varchar(100) NOT NULL,\n";
+        $sqlContent .= "  `password` varchar(255) NOT NULL,\n";
+        $sqlContent .= "  `full_name` varchar(100) DEFAULT NULL,\n";
+        $sqlContent .= "  `storage_quota` bigint(20) DEFAULT 5368709120,\n";
+        $sqlContent .= "  `storage_used` bigint(20) DEFAULT 0,\n";
+        $sqlContent .= "  `is_admin` tinyint(1) DEFAULT 0,\n";
+        $sqlContent .= "  `is_active` tinyint(1) DEFAULT 1,\n";
+        $sqlContent .= "  `last_login` datetime DEFAULT NULL,\n";
+        $sqlContent .= "  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,\n";
+        $sqlContent .= "  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n";
+        $sqlContent .= "  PRIMARY KEY (`id`),\n";
+        $sqlContent .= "  UNIQUE KEY `username` (`username`),\n";
+        $sqlContent .= "  UNIQUE KEY `email` (`email`)\n";
+        $sqlContent .= ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n";
+        
+        $sqlContent .= "-- Dumping data for table `users`\n\n";
+        
+        foreach ($users as $user) {
+            $values = [];
+            foreach ($user as $key => $value) {
+                if ($value === null) {
+                    $values[] = 'NULL';
+                } else {
+                    $values[] = "'" . addslashes($value) . "'";
+                }
+            }
+            $sqlContent .= "INSERT INTO `users` VALUES (" . implode(', ', $values) . ");\n";
+        }
+        
+        // Write to file
+        if (file_put_contents($backupPath, $sqlContent) === false) {
+            throw new Exception('Gagal menulis file SQL backup.');
+        }
+        
+        $fileSize = @filesize($backupPath);
+        log_activity('BACKUP_USERS_SQL', "Created users table SQL backup: {$backupName} ({$fileSize} bytes, " . count($users) . " users)");
+        
+        $message = "Backup SQL users table berhasil: {$backupName} (" . humanBytes($fileSize) . ", " . count($users) . " users).";
+        $messageType = 'success';
+    } catch (Exception $e) {
+        $message = "Gagal membuat backup SQL: " . $e->getMessage();
+        $messageType = 'danger';
+        error_log('Users SQL backup error: ' . $e->getMessage());
+    }
+}
+
+// Handle backup server (all data with compression)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_server') {
+    try {
+        $uploadsDir = __DIR__ . '/../uploads';
+        $internalFilesDir = $internalDir;
+        $backupTimestamp = date('Y-m-d_H-i-s');
+        $backupName = "server_backup_{$backupTimestamp}.zip";
+        $backupPath = $backupDir . '/' . $backupName;
+        
+        // Check if ZipArchive is available
+        if (!class_exists('ZipArchive')) {
+            throw new Exception('ZipArchive tidak tersedia di server ini.');
+        }
+        
+        $zip = new ZipArchive();
+        if ($zip->open($backupPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new Exception('Gagal membuat file ZIP.');
+        }
+        
+        // Recursive function to add files to zip
+        $fileCount = 0;
+        $addFilesToZip = function($dir, $zipPath, $exclude) use (&$zip, &$fileCount, &$addFilesToZip) {
+            if (!is_dir($dir)) return;
+            
+            $files = @scandir($dir);
+            if ($files === false) return;
+            
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') continue;
+                if (in_array($file, $exclude)) continue;
+                
+                $filePath = $dir . '/' . $file;
+                $relativePath = $zipPath . '/' . $file;
+                
+                if (is_dir($filePath)) {
+                    $zip->addEmptyDir($relativePath);
+                    $addFilesToZip($filePath, $relativePath, []);
+                } else if (is_file($filePath)) {
+                    if ($zip->addFile($filePath, $relativePath)) {
+                        $fileCount++;
+                    }
+                }
+            }
+        };
+        
+        // Add uploads directory
+        if (is_dir($uploadsDir)) {
+            $addFilesToZip($uploadsDir, 'uploads', []);
+        }
+        
+        // Add internal_files directory (except backup subdirectory to avoid recursion)
+        if (is_dir($internalFilesDir)) {
+            $addFilesToZip($internalFilesDir, 'internal_files', ['backup']);
+        }
+        
+        // Add SQL dump of all database tables
+        $sqlBackupName = "database_backup_{$backupTimestamp}.sql";
+        $tempSqlPath = sys_get_temp_dir() . '/' . $sqlBackupName;
+        
+        // Create SQL dump
+        $sqlContent = "-- Database Backup\n";
+        $sqlContent .= "-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
+        
+        // Tables to backup
+        $tables = ['users', 'files', 'file_categories', 'file_storage_paths', 'storage_requests', 'activity_logs'];
+        
+        foreach ($tables as $table) {
+            try {
+                $result = fetchAll("SELECT * FROM {$table}");
+                if (!empty($result)) {
+                    $sqlContent .= "-- Table: {$table}\n";
+                    $sqlContent .= "DELETE FROM `{$table}`;\n";
+                    
+                    foreach ($result as $row) {
+                        $values = [];
+                        foreach ($row as $value) {
+                            if ($value === null) {
+                                $values[] = 'NULL';
+                            } else {
+                                $values[] = "'" . addslashes($value) . "'";
+                            }
+                        }
+                        $sqlContent .= "INSERT INTO `{$table}` VALUES (" . implode(', ', $values) . ");\n";
+                    }
+                    $sqlContent .= "\n";
+                }
+            } catch (Exception $e) {
+                $sqlContent .= "-- Error backing up table {$table}: " . $e->getMessage() . "\n\n";
+            }
+        }
+        
+        file_put_contents($tempSqlPath, $sqlContent);
+        $zip->addFile($tempSqlPath, $sqlBackupName);
+        
+        $zip->close();
+        
+        // Clean up temp SQL file
+        @unlink($tempSqlPath);
+        
+        $fileSize = 0;
+        if (is_file($backupPath)) {
+            $fileSize = @filesize($backupPath);
+        }
+        
+        log_activity('BACKUP_SERVER', "Created server backup: {$backupName} ({$fileSize} bytes, {$fileCount} files included)");
+        
+        $message = "Server backup berhasil dibuat: {$backupName} (" . humanBytes($fileSize) . ", {$fileCount} file).";
+        $messageType = 'success';
+    } catch (Exception $e) {
+        $message = "Gagal membuat backup server: " . $e->getMessage();
+        $messageType = 'danger';
+        error_log('Server backup error: ' . $e->getMessage());
     }
 }
 
@@ -146,9 +383,6 @@ if (localStorage.getItem('theme') === 'dark') {
 
         <!-- Tab Content -->
         <div class="tab-content">
-
-        <!-- Tab Content -->
-        <div class="tab-content">
             <!-- Files Tab -->
             <div class="tab-pane fade show active" id="files-tab">
                 <div class="card mb-3 shadow-sm">
@@ -207,28 +441,37 @@ if (localStorage.getItem('theme') === 'dark') {
                     <div class="col-md-12 mb-4">
                         <div class="card shadow-sm bg-gradient">
                             <div class="card-header bg-danger text-white">
-                                <i class="fa fa-server me-2"></i>Backup Server
+                                <i class="fa fa-server me-2"></i>Backup Server & Database
                             </div>
                             <div class="card-body">
                                 <div class="row align-items-center">
-                                    <div class="col-md-8">
+                                    <div class="col-md-6">
                                         <h6 class="fw-bold mb-2">Backup Semua Data Server</h6>
                                         <p class="text-muted small mb-3">Buat backup komprehensif dari semua data server termasuk file user, database, dan konfigurasi. File akan dikompres dalam format ZIP untuk efisiensi penyimpanan.</p>
                                         <ul class="small text-muted">
                                             <li>Semua file user dari folder <code>uploads/</code></li>
                                             <li>File internal dari <code>internal_files/</code></li>
-                                            <li>Data tersimpan di <code>internal_files/backup/</code></li>
+                                            <li>Database SQL dump (semua tabel)</li>
                                             <li>Format: ZIP (terkompresi)</li>
                                         </ul>
                                     </div>
-                                    <div class="col-md-4 text-center">
+                                    <div class="col-md-3 text-center">
                                         <form method="post" style="display:inline;" onsubmit="return confirm('Buat backup lengkap server? Proses ini mungkin memakan waktu...')">
                                             <input type="hidden" name="action" value="backup_server">
-                                            <button type="submit" class="btn btn-lg btn-danger">
-                                                <i class="fa fa-download me-2"></i>Backup Sekarang
+                                            <button type="submit" class="btn btn-lg btn-danger mb-2">
+                                                <i class="fa fa-download me-2"></i>Backup Server
                                             </button>
                                         </form>
-                                        <p class="small text-muted mt-3"><i class="fa fa-info-circle"></i> Backup otomatis dikompres</p>
+                                        <p class="small text-muted"><i class="fa fa-info-circle"></i> Full backup dengan SQL</p>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <form method="post" style="display:inline;" onsubmit="return confirm('Backup tabel users ke file SQL?')">
+                                            <input type="hidden" name="action" value="backup_users_sql">
+                                            <button type="submit" class="btn btn-lg btn-warning mb-2">
+                                                <i class="fa fa-database me-2"></i>Backup Users SQL
+                                            </button>
+                                        </form>
+                                        <p class="small text-muted"><i class="fa fa-info-circle"></i> Hanya tabel users</p>
                                     </div>
                                 </div>
                             </div>
@@ -274,176 +517,72 @@ if (localStorage.getItem('theme') === 'dark') {
                     <!-- Backup Files List Section -->
                     <div class="col-md-6 mb-4">
                         <div class="card shadow-sm">
-                            <div class="card-header bg-info text-white">
-                                <i class="fa fa-archive me-2"></i>Daftar Backup
+                            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                <span><i class="fa fa-archive me-2"></i>Daftar Backup</span>
+                                <small class="text-white"><?php echo count($backups); ?> file(s)</small>
                             </div>
-                            <div class="card-body" style="max-height: 500px; overflow-y: auto;">
-                                <?php if (empty($backups)): ?>
-                                    <p class="text-muted">Tidak ada backup file.</p>
-                                <?php else: ?>
-                                    <table class="table table-sm table-striped">
-                                        <thead>
-                                            <tr><th>Nama</th><th>Ukuran</th><th>Aksi</th></tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($backups as $backup):
-                                                $full = $backupDir . '/' . $backup;
-                                                $size = 0;
-                                                $time = 'N/A';
-                                                if (is_file($full)) {
-                                                    $size = @filesize($full);
-                                                    $time = date('Y-m-d H:i:s', filemtime($full));
-                                                }
-                                            ?>
-                                            <tr>
-                                                <td><small><?php echo htmlspecialchars($backup); ?></small></td>
-                                                <td><small><?php echo humanBytes($size); ?></small></td>
-                                                <td>
-                                                    <a href="../../internal_files/backup/<?php echo rawurlencode($backup); ?>" class="btn btn-xs btn-outline-primary" style="font-size:0.75rem; padding: 2px 6px;">DL</a>
-                                                    <a href="?delete_backup=<?php echo rawurlencode($backup); ?>" class="btn btn-xs btn-outline-danger" style="font-size:0.75rem; padding: 2px 6px;" onclick="return confirm('Hapus backup?')">X</a>
-                                                </td>
-                                            </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                <?php endif; ?>
+                            <div class="card-body">
+                                <!-- Search Bar -->
+                                <div class="mb-3">
+                                    <input type="text" id="backupSearch" class="form-control form-control-sm" placeholder="Cari backup file...">
+                                </div>
+                                
+                                <div style="max-height: 450px; overflow-y: auto;">
+                                    <?php if (empty($backups)): ?>
+                                        <p class="text-muted">Tidak ada backup file.</p>
+                                    <?php else: ?>
+                                        <table class="table table-sm table-striped">
+                                            <thead>
+                                                <tr><th>Nama</th><th>Ukuran</th><th>Aksi</th></tr>
+                                            </thead>
+                                            <tbody id="backupTableBody">
+                                                <?php foreach ($backups as $backup):
+                                                    $full = $backupDir . '/' . $backup;
+                                                    $size = 0;
+                                                    $time = 'N/A';
+                                                    if (is_file($full)) {
+                                                        $size = @filesize($full);
+                                                        $time = date('Y-m-d H:i:s', filemtime($full));
+                                                    }
+                                                ?>
+                                                <tr class="backup-row">
+                                                    <td class="backup-name"><small><?php echo htmlspecialchars($backup); ?></small></td>
+                                                    <td><small><?php echo humanBytes($size); ?></small></td>
+                                                    <td>
+                                                        <a href="../../internal_files/backup/<?php echo rawurlencode($backup); ?>" class="btn btn-xs btn-outline-primary" style="font-size:0.75rem; padding: 2px 6px;" download>DL</a>
+                                                        <a href="?delete_backup=<?php echo rawurlencode($backup); ?>" class="btn btn-xs btn-outline-danger" style="font-size:0.75rem; padding: 2px 6px;" onclick="return confirm('Hapus backup?')">X</a>
+                                                    </td>
+                                                </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
-<?php
-// handle delete after output to avoid headers issues
-if (isset($_GET['delete'])) {
-    $d = basename($_GET['delete']);
-    $p = $internalDir . '/' . $d;
-    if (is_file($p)) {
-        unlink($p);
-        log_activity('DELETE_INTERNAL_FILE', "Deleted file: {$d}");
-        header('Location: file_internal.php');
-        exit;
-    }
-}
-
-// Handle delete backup
-if (isset($_GET['delete_backup'])) {
-    $d = basename($_GET['delete_backup']);
-    $p = $backupDir . '/' . $d;
-    if (is_file($p)) {
-        unlink($p);
-        log_activity('DELETE_BACKUP', "Deleted backup: {$d}");
-        header('Location: file_internal.php?tab=backup');
-        exit;
-    }
-}
-
-// Handle backup all user files
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_user') {
-    $userId = intval($_POST['user_id']);
-    $userFiles = fetchAll('SELECT id, original_name FROM files WHERE user_id = ? AND is_trashed = 0', [$userId]);
-    
-    $backupCount = 0;
-    foreach ($userFiles as $file) {
-        $storage = fetchOne('SELECT storage_path FROM file_storage_paths WHERE file_id = ?', [$file['id']]);
-        if ($storage && is_file($storage['storage_path'])) {
-            $backupName = date('Y-m-d_H-i-s') . '_user' . $userId . '_' . $file['original_name'];
-            $backupFile = $backupDir . '/' . preg_replace('/[^A-Za-z0-9._-]/', '_', $backupName);
-            
-            if (copy($storage['storage_path'], $backupFile)) {
-                $backupCount++;
-            }
-        }
-    }
-    
-    if ($backupCount > 0) {
-        log_activity('BACKUP_USER_FILES', "Backed up {$backupCount} file(s) from user {$userId}");
-        $message = "Berhasil backup {$backupCount} file dari user ini.";
-        $messageType = 'success';
-    } else {
-        $message = 'Tidak ada file yang berhasil dibackup.';
-        $messageType = 'warning';
-    }
-}
-
-// Handle backup server (all data with compression)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_server') {
-    try {
-        $uploadsDir = __DIR__ . '/../../uploads';
-        $internalFilesDir = $internalDir;
-        $backupTimestamp = date('Y-m-d_H-i-s');
-        $backupName = "server_backup_{$backupTimestamp}.zip";
-        $backupPath = $backupDir . '/' . $backupName;
-        
-        // Check if ZipArchive is available
-        if (!class_exists('ZipArchive')) {
-            throw new Exception('ZipArchive tidak tersedia di server ini.');
-        }
-        
-        $zip = new ZipArchive();
-        if ($zip->open($backupPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new Exception('Gagal membuat file ZIP.');
-        }
-        
-        // Recursive function to add files to zip
-        $fileCount = 0;
-        $addFilesToZip = function($dir, $zipPath, $exclude) use (&$zip, &$fileCount, &$addFilesToZip) {
-            if (!is_dir($dir)) return;
-            
-            $files = @scandir($dir);
-            if ($files === false) return;
-            
-            foreach ($files as $file) {
-                if ($file === '.' || $file === '..') continue;
-                if (in_array($file, $exclude)) continue;
-                
-                $filePath = $dir . '/' . $file;
-                $relativePath = $zipPath . '/' . $file;
-                
-                if (is_dir($filePath)) {
-                    $zip->addEmptyDir($relativePath);
-                    $addFilesToZip($filePath, $relativePath, []);
-                } else if (is_file($filePath)) {
-                    if ($zip->addFile($filePath, $relativePath)) {
-                        $fileCount++;
-                    }
-                }
-            }
-        };
-        
-        // Add uploads directory
-        if (is_dir($uploadsDir)) {
-            $addFilesToZip($uploadsDir, 'uploads', []);
-        }
-        
-        // Add internal_files directory (except backup subdirectory to avoid recursion)
-        if (is_dir($internalFilesDir)) {
-            $addFilesToZip($internalFilesDir, 'internal_files', ['backup']);
-        }
-        
-        $zip->close();
-        
-        $fileSize = 0;
-        if (is_file($backupPath)) {
-            $fileSize = @filesize($backupPath);
-        }
-        
-        log_activity('BACKUP_SERVER', "Created server backup: {$backupName} ({$fileSize} bytes, {$fileCount} files included)");
-        
-        $message = "Server backup berhasil dibuat: {$backupName} (" . humanBytes($fileSize) . ", {$fileCount} file).";
-        $messageType = 'success';
-    } catch (Exception $e) {
-        $message = "Gagal membuat backup server: " . $e->getMessage();
-        $messageType = 'danger';
-        error_log('Server backup error: ' . $e->getMessage());
-    }
-}
-?>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Backup search functionality
+document.getElementById('backupSearch')?.addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#backupTableBody .backup-row');
+    
+    rows.forEach(row => {
+        const fileName = row.querySelector('.backup-name').textContent.toLowerCase();
+        if (fileName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+</script>
 </body>
 </html>
