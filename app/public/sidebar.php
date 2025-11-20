@@ -41,7 +41,7 @@ if ($userId) {
 
 <div class="sidebar p-3 d-flex flex-column" id="sidebar">
     <div class="d-flex align-items-center mb-4 logo-container">
-        <img src="assets/image/clairo.png" alt="logo" class="me-2" style="width: 70px;">
+        <img src="<?php echo $baseUrl; ?>/assets/image/clairo.png" alt="logo" class="me-2" style="width: 70px;">
         <div>
             <h4 class="fw-bold logo-text mb-0" style="font-family: 'Krona One', sans-serif;">
                 <span class="text-teal">C</span>lario
@@ -129,6 +129,8 @@ if ($userId) {
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// Expose BASE_URL for client-side scripts
+const BASE_URL = '<?php echo $baseUrl; ?>';
 // Sidebar upload button behaviour: AJAX upload with SweetAlert2 notifications
 document.addEventListener('DOMContentLoaded', function () {
     var uploadBtn = document.getElementById('sidebar-upload-btn');
@@ -168,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Send upload request
-        fetch('upload.php', {
+        fetch(BASE_URL + '/upload.php', {
             method: 'POST',
             body: formData,
             headers: {

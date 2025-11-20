@@ -1,3 +1,15 @@
+/* Centralized application styles (initial placeholder) */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background: #f8f9fa;
+}
+.sidebar img { max-width: 100%; height: auto; }
+.fav-btn.active i.fa-star { color: #ffc107; }
+
+/* Responsive placeholders */
+@media (max-width:768px){
+  #file-grid.grid-view-mode{ grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap:12px; }
+}
 /* === DARK MODE CSS VARIABLES === */
 :root {
   --bg-primary: #f9f9f9;
