@@ -28,8 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
             $updateStmt->execute([$user['id']]);
 
-            // Redirect to home
-            header('Location: semuafile.php');
+            // Redirect admin to dashboard, others to home
+            if (!empty($user['is_admin']) && $user['is_admin'] == 1) {
+                header('Location: admin/dashboard.php');
+            } else {
+                header('Location: semuafile.php');
+            }
             exit;
         } else {
             $error = "Username atau password salah";

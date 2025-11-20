@@ -41,7 +41,7 @@ if ($userId) {
 
 <div class="sidebar p-3 d-flex flex-column" id="sidebar">
     <div class="d-flex align-items-center mb-4 logo-container">
-        <img src="assets/image/clairo.png" alt="logo" class="me-2" style="width: 70px;">
+        <img src="<?php echo $baseUrl; ?>/assets/image/clairo.png" alt="logo" class="me-2" style="width: 70px;">
         <div>
             <h4 class="fw-bold logo-text mb-0" style="font-family: 'Krona One', sans-serif;">
                 <span class="text-teal">C</span>lario
@@ -129,6 +129,8 @@ if ($userId) {
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// Expose BASE_URL for client-side scripts
+const BASE_URL = '<?php echo $baseUrl; ?>';
 // Sidebar upload button behaviour: AJAX upload with SweetAlert2 notifications
 document.addEventListener('DOMContentLoaded', function () {
     var uploadBtn = document.getElementById('sidebar-upload-btn');
@@ -168,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Send upload request
-        fetch('upload.php', {
+        fetch(BASE_URL + '/upload.php', {
             method: 'POST',
             body: formData,
             headers: {
@@ -176,29 +178,43 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .then(response => {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
-            return response.json();
+            // Always attempt to read response body (may contain JSON error message)
+            return response.text().then(text => ({ ok: response.ok, status: response.status, text }));
         })
-        .then(data => {
-            if (data.success) {
-                // Success notification
-                Swal.fire({
-                    title: 'Berhasil!',
-                    html: '<p class="mb-0">File <strong>' + escapeHtml(file.name) + '</strong> berhasil diunggah.</p>',
-                    icon: 'success',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#28a745'
-                }).then(() => {
-                    // Refresh current page to show new file
-                    window.location.reload();
-                });
+        .then(obj => {
+            var data = null;
+            try {
+                data = obj.text ? JSON.parse(obj.text) : null;
+            } catch (e) {
+                data = null;
+            }
+
+            if (obj.ok) {
+                if (data && data.success) {
+                    Swal.fire({
+                        title: 'Berhasil!',
+                        html: '<p class="mb-0">File <strong>' + escapeHtml(file.name) + '</strong> berhasil diunggah.</p>',
+                        icon: 'success',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#28a745'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Gagal!',
+                        html: '<p class="mb-0">' + escapeHtml((data && data.message) ? data.message : 'Terjadi kesalahan saat mengunggah file.') + '</p>',
+                        icon: 'error',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
             } else {
-                // Error from server
+                // Non-OK HTTP status — prefer server message if present
+                var msg = (data && data.message) ? data.message : ('Terjadi kesalahan jaringan: HTTP ' + obj.status);
                 Swal.fire({
                     title: 'Gagal!',
-                    html: '<p class="mb-0">' + escapeHtml(data.message || 'Terjadi kesalahan saat mengunggah file.') + '</p>',
+                    html: '<p class="mb-0">' + escapeHtml(msg) + '</p>',
                     icon: 'error',
                     confirmButtonText: 'OK',
                     confirmButtonColor: '#dc3545'
@@ -206,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .catch(error => {
-            // Network or parse error
+            // Network or other error
             Swal.fire({
                 title: 'Gagal!',
                 html: '<p class="mb-0">Terjadi kesalahan jaringan: ' + escapeHtml(error.message) + '</p>',

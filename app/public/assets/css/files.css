@@ -1,0 +1,95 @@
+/* Shared file listing styles for grid + list view, search, filters, header, actions */
+:root{
+    --primary: #0d6efd;
+    --muted: #6c757d;
+    --card-bg: #fff;
+    --border: #dee2e6;
+}
+
+/* Layout area */
+.files-header {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+}
+
+.files-controls {
+    display:flex;
+    gap:8px;
+    align-items:center;
+}
+
+.search-input {
+    min-width:240px;
+    max-width:100%;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    padding:6px 10px;
+    border-radius:6px;
+}
+
+/* category chips */
+.category-chip {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 10px;
+    background:transparent;
+    border-radius:20px;
+    border:1px solid transparent;
+    cursor:pointer;
+    color:var(--muted);
+    font-size:13px;
+}
+.category-chip.active{
+    background:var(--primary);
+    color:#fff;
+    border-color:var(--primary);
+}
+
+/* View toggle */
+.view-toggle { border:1px solid var(--border); border-radius:8px; background:#fff; display:inline-flex; padding:4px; }
+.view-toggle button { border:0; padding:6px 10px; cursor:pointer; background:transparent; color:var(--muted); border-radius:6px; }
+.view-toggle button.active { background:var(--primary); color:#fff; }
+
+/* file grid/list */
+#file-grid { transition:all .15s ease; display:grid; gap:12px; }
+#file-grid.grid-view-mode { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
+#file-grid.list-view-mode { display:block; }
+
+/* header row for list view */
+.list-header {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    padding:8px 12px;
+    border-bottom:1px solid var(--border);
+    background:#f8f9fa;
+    font-weight:600;
+    font-size:13px;
+}
+.list-header .col {flex:1;}
+.list-header .col.name { flex: 3; }
+.list-header .col.actions { width:160px; text-align:right; }
+
+/* file item */
+.file-item { background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:8px; align-items:center; }
+.list-view-mode .file-item { display:flex; flex-direction:row; align-items:center; gap:12px; padding:12px; border-radius:0; border-bottom:1px solid var(--border); }
+.file-icon { width:48px; height:48px; object-fit:contain; }
+.file-info { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+.file-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.file-meta { color:var(--muted); font-size:13px; }
+
+.more-actions { display:flex; gap:6px; justify-content:flex-end; align-items:center; }
+
+/* small responsive tweaks */
+@media(max-width:768px){
+    .search-input { min-width:160px; }
+    .list-header .col.actions { display:none; }
+}

@@ -43,13 +43,27 @@
                 <h6 class="fw-bold mt-3">File yang dihapus</h6>
                 <p class="text-muted small">File yang dihapus akan muncul di sini.</p>
             </div>
-            <div class="view-toggle">
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input id="file-search-input" type="text" class="form-control form-control-sm" placeholder="Cari file..." style="width:260px;">
+                    <select id="category-filter" class="form-select form-select-sm" style="width:150px;">
+                        <option value="">Semua Kategori</option>
+                        <option value="image">Gambar</option>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                        <option value="document">Dokumen</option>
+                        <option value="archive">Arsip</option>
+                        <option value="other">Lainnya</option>
+                    </select>
+                </div>
+                <div class="view-toggle">
                 <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak">
                     <span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span>
                 </button>
                 <button class="toggle-btn" id="list-view" title="Tampilan Daftar">
                     <span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span>
                 </button>
+                </div>
             </div>
         </div>
 
@@ -62,7 +76,7 @@
         if (!$userId) {
             echo '<div class="alert alert-warning">Silakan login untuk melihat sampah Anda.</div>';
         } else {
-            $rows = fetchAll('SELECT * FROM file_storage_paths WHERE user_id = ? AND is_deleted = 1 ORDER BY deleted_at DESC', [$userId]);
+            $rows = fetchAll('SELECT fsp.*, f.is_favorite FROM file_storage_paths fsp LEFT JOIN files f ON fsp.file_id = f.id WHERE fsp.user_id = ? AND fsp.is_deleted = 1 ORDER BY fsp.deleted_at DESC', [$userId]);
             $items = [];
             if ($rows) {
                 foreach ($rows as $r) {
@@ -100,12 +114,14 @@
                     echo '<div class="file-item" data-file-id="' . $fileIdAttr . '">';
                     echo '<div class="file-card position-relative">';
                     echo '<div class="file-card-inner">';
+                    $isFav = isset($it['is_favorite']) ? $it['is_favorite'] : 0;
+                    $favClass = !empty($isFav) ? ' active' : '';
                     echo '<div class="card-overlay">';
                     echo '<div class="action-btn-group">';
                     echo '<button class="btn btn-sm btn-light share-btn" title="Bagikan" aria-label="Bagikan">';
                     echo '<i class="fa fa-share-alt me-1"></i> Bagikan';
                     echo '</button>';
-                    echo '<button class="btn btn-sm btn-warning fav-btn" title="Favorit" aria-label="Favorit">';
+                    echo '<button class="btn btn-sm btn-warning fav-btn' . $favClass . '" data-file-id="' . $fileIdAttr . '" data-favorite="' . ($isFav ? 'true' : 'false') . '" title="Favorit" aria-label="Favorit">';
                     echo '<i class="fa fa-star"></i>';
                     echo '</button>';
                     echo '<button class="btn btn-sm btn-primary rename-btn" title="Ganti nama" aria-label="Ganti nama">';
@@ -125,6 +141,10 @@
                         echo '<div class="file-thumbnail"><i class="fa fa-file"></i></div>';
                     }
                     echo '</div>';
+                    // Inline favorite button visible under more area
+                    echo '<button class="fav-inline fav-btn' . $favClass . ' btn btn-sm" data-file-id="' . $fileIdAttr . '" data-favorite="' . ($isFav ? 'true' : 'false') . '" title="Favorit" style="position:absolute; right:12px; top:48px; background:transparent; border:none;">';
+                    echo '<i class="fa fa-star"></i>';
+                    echo '</button>';
                     echo '<div class="file-info p-2">';
                     echo '<p class="file-name mb-1">' . htmlspecialchars($it['name']) . '</p>';
                     echo '<p class="file-size text-muted small mb-0">' . human_filesize($it['size']) . '</p>';
@@ -143,6 +163,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const grid = document.getElementById('file-grid');
     const gridBtn = document.getElementById('grid-view');
     const listBtn = document.getElementById('list-view');
+    const searchInput = document.getElementById('file-search-input');
+    const categoryFilter = document.getElementById('category-filter');
+    
     if (!grid) return;
 
     function setGridMode(){ grid.classList.remove('list-view-mode'); grid.classList.add('grid-view-mode'); gridBtn && gridBtn.classList.add('active'); listBtn && listBtn.classList.remove('active'); }
@@ -155,6 +178,41 @@ document.addEventListener('DOMContentLoaded', function () {
     setGridMode();
 
     function updateCounts(c){ if(!c) return; var t=document.getElementById('total-files-count'); var f=document.getElementById('favorite-files-count'); var tr=document.getElementById('trash-files-count'); if(t&&typeof c.total!=='undefined') t.textContent = c.total + ' File'; if(f&&typeof c.favorites!=='undefined') f.textContent = c.favorites + ' Favorit'; if(tr&&typeof c.trash!=='undefined') tr.textContent = c.trash + ' Sampah'; }
+
+    // Search and category filter
+    function getCategory(mimeType) {
+        if (!mimeType) return 'other';
+        if (mimeType.startsWith('image/')) return 'image';
+        if (mimeType.startsWith('video/')) return 'video';
+        if (mimeType.startsWith('audio/')) return 'audio';
+        if (mimeType.includes('word') || mimeType.includes('sheet') || mimeType.includes('presentation') || mimeType.includes('pdf')) return 'document';
+        if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return 'archive';
+        return 'other';
+    }
+    
+    function filterItems() {
+        const searchValue = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const categoryValue = categoryFilter ? categoryFilter.value : '';
+        const items = grid.querySelectorAll('.file-item');
+        
+        items.forEach(item => {
+            const fileName = (item.dataset.fileName || '').toLowerCase();
+            const mimeType = item.dataset.fileMime || '';
+            const itemCategory = getCategory(mimeType);
+            
+            const matchesSearch = searchValue === '' || fileName.includes(searchValue);
+            const matchesCategory = categoryValue === '' || itemCategory === categoryValue;
+            
+            if (matchesSearch && matchesCategory) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    if (searchInput) searchInput.addEventListener('input', filterItems);
+    if (categoryFilter) categoryFilter.addEventListener('change', filterItems);
 
     // delegate clicks for restore, permanent delete, favorite, rename, share
     grid.addEventListener('click', function (e) {
@@ -236,22 +294,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 }).catch(()=>{ prompt('Salin link berikut:', url); });
             } else { prompt('Salin link berikut:', url); }
             return;
-        }        // Handle permanent delete button
+        }        
+        // Handle permanent delete button
         const delBtn = e.target.closest('.del-perm-btn');
         if (!delBtn) return;
         const item = delBtn.closest('.file-item'); if (!item) return;
         const fileId = item.dataset.fileId; const fileName = item.querySelector('.file-name')?.textContent || 'file';
-        if (!confirm('Hapus permanen file "' + fileName + '"? Tindakan ini tidak dapat dibatalkan.')) return;
-        fetch('delete.php', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ file_id: fileId, permanent: 1 }) })
-        .then(r => r.json())
-        .then(j => {
-            if (j && j.success) {
-                const alertDiv = document.createElement('div'); alertDiv.className = 'alert alert-info alert-dismissible fade show'; alertDiv.role = 'alert'; alertDiv.innerHTML = '<i class="fa fa-trash me-2"></i><strong>Dihapus!</strong> File telah dihapus secara permanen. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>'; document.querySelector('.main')?.insertBefore(alertDiv, document.querySelector('.header-section')?.nextElementSibling);
-                item.style.opacity = '0'; item.style.transform = 'scale(0.95)'; setTimeout(() => item.remove(), 300);
-                updateCounts(j.counts || {});
-                setTimeout(() => { if (grid.children.length === 0) location.reload(); }, 500);
-            } else alert((j && j.message) ? j.message : 'Gagal menghapus');
-        }).catch(err => { console.error(err); alert('Network error'); });
+        
+        Swal.fire({
+            title: 'Hapus Permanen?',
+            text: 'File "' + fileName + '" akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Hapus Permanen',
+            confirmButtonColor: '#dc3545',
+            cancelButtonText: 'Batal',
+            position: 'bottom-right'
+        }).then(result => {
+            if (result.isConfirmed) {
+                fetch('delete.php', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ file_id: fileId, permanent: 1 }) })
+                .then(r => r.json())
+                .then(j => {
+                    if (j && j.success) {
+                        item.style.opacity = '0'; item.style.transform = 'scale(0.95)'; setTimeout(() => item.remove(), 300);
+                        updateCounts(j.counts || {});
+                        Swal.fire({icon: 'success', title: 'Berhasil', text: 'File telah dihapus permanen', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
+                        setTimeout(() => { if (grid.children.length === 0) location.reload(); }, 500);
+                    } else Swal.fire({icon: 'error', title: 'Gagal', text: (j && j.message) ? j.message : 'Gagal menghapus', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
+                }).catch(err => { console.error(err); Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); });
+            }
+        });
     });
 });
 </script>

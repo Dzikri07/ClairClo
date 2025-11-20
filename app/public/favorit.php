@@ -8,7 +8,7 @@ require_once __DIR__ . '/../src/StorageManager.php';
 $userId = $_SESSION['user_id'] ?? null;
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id"><!--  -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,13 +29,27 @@ $userId = $_SESSION['user_id'] ?? null;
                 <h6 class="fw-bold mt-3">File favorit</h6>
                 <p class="text-muted small">Lihat file yang kamu tandai sebagai favorit.</p>
             </div>
-            <div class="view-toggle">
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input id="file-search-input" type="text" class="form-control form-control-sm" placeholder="Cari file..." style="width:260px;">
+                    <select id="category-filter" class="form-select form-select-sm" style="width:150px;">
+                        <option value="">Semua Kategori</option>
+                        <option value="image">Gambar</option>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                        <option value="document">Dokumen</option>
+                        <option value="archive">Arsip</option>
+                        <option value="other">Lainnya</option>
+                    </select>
+                </div>
+                <div class="view-toggle">
                 <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak">
                     <span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span>
                 </button>
                 <button class="toggle-btn" id="list-view" title="Tampilan Daftar">
                     <span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span>
                 </button>
+                </div>
             </div>
         </div>
 
@@ -83,11 +97,12 @@ $userId = $_SESSION['user_id'] ?? null;
                 foreach ($items as $it) {
                     $fileIdAttr = intval($it['id']);
                     $isFav = $it['is_favorite'] ? 'true' : 'false';
+                    $favClass = !empty($it['is_favorite']) ? ' active' : '';
                     echo '<div class="file-item" data-file-id="' . $fileIdAttr . '">';
                     echo '<div class="file-card">';
                     echo '<div class="file-card-inner">';
                     echo '<div class="card-overlay">';
-                    echo '<button class="btn btn-sm btn-light fav-btn" data-favorite="' . $isFav . '" title="Tambah ke favorit"><i class="fa fa-star"></i></button>';
+                    echo '<button class="btn btn-sm btn-light fav-btn' . $favClass . '" data-file-id="' . $fileIdAttr . '" data-favorite="' . $isFav . '" title="Tambah ke favorit"><i class="fa fa-star"></i></button>';
                     echo '<button class="btn btn-sm btn-light del-btn" title="Hapus"><i class="fa fa-trash"></i></button>';
                     echo '</div>';
                     if (strpos($it['mime'], 'image/') === 0) {
@@ -96,6 +111,10 @@ $userId = $_SESSION['user_id'] ?? null;
                         echo '<div class="file-thumbnail"><i class="fa fa-file"></i></div>';
                     }
                     echo '</div>';
+                    // Inline favorite button (visible under more area)
+                    echo '<button class="fav-inline fav-btn' . $favClass . ' btn btn-sm" data-file-id="' . $fileIdAttr . '" data-favorite="' . $isFav . '" title="Favorit" style="position:absolute; right:12px; top:48px; background:transparent; border:none;">';
+                    echo '<i class="fa fa-star"></i>';
+                    echo '</button>';
                     echo '<div class="file-info">';
                     echo '<p class="file-name">' . htmlspecialchars($it['name']) . '</p>';
                     echo '<p class="file-size">' . human_filesize($it['size']) . '</p>';
@@ -299,7 +318,8 @@ $userId = $_SESSION['user_id'] ?? null;
 .file-item.favorited { order: -1; }
 </style>
 
-
+<style>
+    
 
 /* Responsive tweaks */
 @media (max-width:768px){
@@ -320,12 +340,15 @@ $userId = $_SESSION['user_id'] ?? null;
     #file-grid.list-view-mode .file-name{ font-size:13px; }
     #file-grid.list-view-mode .file-size{ font-size:11px; }
 }
+</style>
 <script>
 // Reuse the same JS handlers as semuafile by delegating clicks on #file-grid
 document.addEventListener('DOMContentLoaded', function () {
     const grid = document.getElementById('file-grid');
     const gridBtn = document.getElementById('grid-view');
     const listBtn = document.getElementById('list-view');
+    const searchInput = document.getElementById('file-search-input');
+    const categoryFilter = document.getElementById('category-filter');
     
     if (!grid) return;
     
@@ -350,6 +373,41 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Initialize grid view mode
     grid.classList.add('grid-view-mode');
+    
+    // Search and category filter
+    function getCategory(mimeType) {
+        if (!mimeType) return 'other';
+        if (mimeType.startsWith('image/')) return 'image';
+        if (mimeType.startsWith('video/')) return 'video';
+        if (mimeType.startsWith('audio/')) return 'audio';
+        if (mimeType.includes('word') || mimeType.includes('sheet') || mimeType.includes('presentation') || mimeType.includes('pdf')) return 'document';
+        if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return 'archive';
+        return 'other';
+    }
+    
+    function filterItems() {
+        const searchValue = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const categoryValue = categoryFilter ? categoryFilter.value : '';
+        const items = grid.querySelectorAll('.file-item');
+        
+        items.forEach(item => {
+            const fileName = (item.dataset.fileName || '').toLowerCase();
+            const mimeType = item.dataset.fileMime || '';
+            const itemCategory = getCategory(mimeType);
+            
+            const matchesSearch = searchValue === '' || fileName.includes(searchValue);
+            const matchesCategory = categoryValue === '' || itemCategory === categoryValue;
+            
+            if (matchesSearch && matchesCategory) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    if (searchInput) searchInput.addEventListener('input', filterItems);
+    if (categoryFilter) categoryFilter.addEventListener('change', filterItems);
     
     grid.addEventListener('click', function (e) {
         var fav = e.target.closest('.fav-btn');

@@ -76,35 +76,79 @@ $userId = $_SESSION['user_id'] ?? null;
         border-radius: 0 5px 5px 0;
     }
 
-    /* File Grid View */
+    /* Header and search bar styling */
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .header-section input,
+    .header-section select {
+        min-width: 0 !important;
+    }
+
+    /* Ensure search bar is visible */
+    #file-search-input {
+        width: 260px !important;
+        background-color: #f5f5f5 !important;
+    }
+
+    #category-filter {
+        width: 150px !important;
+    }
+
     #file-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 20px;
-        padding: 16px 0;
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+        gap: 20px !important;
+        padding: 16px 0 !important;
     }
 
     #file-grid.list-view-mode {
         display: flex !important;
-        flex-direction: column;
-        gap: 10px;
+        flex-direction: column !important;
+        grid-template-columns: unset !important;
+        gap: 8px !important;
     }
 
     .file-item {
-        display: contents;
+        display: block !important;
+        min-width: 0 !important;
+    }
+
+    #file-grid.list-view-mode .file-item {
+        display: block !important;
     }
 
     #file-grid.grid-view-mode .file-card {
-        display: flex;
-        flex-direction: column;
+        display: flex !important;
+        flex-direction: column !important;
         background: #fff;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
-        overflow: hidden;
+        overflow: hidden !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         transition: all 0.2s ease;
         position: relative;
-        height: 100%;
+        height: 100% !important;
+    }
+
+    #file-grid.list-view-mode .file-card {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        width: 100%;
+        position: relative;
+        height: auto;
     }
 
     #file-grid.grid-view-mode .file-card:hover {
@@ -505,22 +549,39 @@ $userId = $_SESSION['user_id'] ?? null;
                 <h6 class="fw-bold mt-3">File yang tersimpan</h6>
                 <p class="text-muted small">Lihat semua file yang telah diunggah.</p>
             </div>
-            <div class="view-toggle">
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="input-group" style="width:260px;">
+                        <input id="file-search" type="text" class="form-control form-control-sm" placeholder="Cari file...">
+                        <button id="file-search-btn" class="btn btn-primary btn-sm" type="button" title="Cari"><i class="fa fa-search"></i></button>
+                    </div>
+                    <span class="category-chip" data-filter="image">Gambar</span>
+                    <span class="category-chip" data-filter="video">Video</span>
+                    <span class="category-chip" data-filter="audio">Audio</span>
+                    <span class="category-chip" data-filter="document">Dokumen</span>
+                    <span class="category-chip" data-filter="archive">Arsip</span>
+                    <span class="category-chip" data-filter="other">Lainnya</span>
+                </div>
+                <div class="view-toggle">
                 <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak">
                     <span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span>
                 </button>
                 <button class="toggle-btn" id="list-view" title="Tampilan Daftar">
                     <span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span>
                 </button>
+                </div>
             </div>
         </div>
 
         <?php
-        if (!$userId) {
+            $searchQuery = trim($_GET['q'] ?? '');
+            if (!$userId) {
             echo '<div class="alert alert-warning">Silakan login untuk melihat file Anda.</div>';
         } else {
             $sm = new StorageManager();
-            $dbItems = $sm->getUserFiles($userId);
+            $filters = [];
+            if (!empty($searchQuery)) $filters['search'] = $searchQuery;
+            $dbItems = $sm->getUserFiles($userId, $filters);
 
             $items = [];
             if ($dbItems) {
@@ -554,14 +615,32 @@ $userId = $_SESSION['user_id'] ?? null;
                 echo '<div class="text-center"><i class="fa fa-trash fa-2x text-danger"></i><div class="fw-bold" id="trash-files-count">' . intval($trash['cnt'] ?? 0) . ' Sampah</div><div class="small text-muted">File siap hapus permanen</div></div>';
                 echo '</div></div>';
 
-                // render grid
+                // render grid (contains header for list mode + items)
                 echo '<div id="file-grid" data-page="all">';
+
+                // determine owner name for this user's files
+                $ownerRow = fetchOne('SELECT username, full_name FROM users WHERE id = ?', [$userId]);
+                $ownerName = $ownerRow['full_name'] ?? $ownerRow['username'] ?? '-';
+
+                // file list header (visible only in list mode via CSS)
+                echo '<div class="file-list-header">';
+                echo '<div class="col col-name"><i class="fa fa-file"></i> Nama File</div>';
+                echo '<div class="col col-owner"><i class="fa fa-user"></i> Pemilik</div>';
+                echo '<div class="col col-modified"><i class="fa fa-clock"></i> Tanggal Diubah</div>';
+                echo '<div class="col col-size"><i class="fa fa-hdd"></i> Ukuran</div>';
+                echo '<div class="col col-actions"><i class="fa fa-ellipsis-h"></i></div>';
+                echo '</div>';
                 foreach ($items as $it) {
                     $fileIdAttr = intval($it['id']);
                     $isFav = $it['is_favorite'] ? 'true' : 'false';
+                    $favClass = !empty($it['is_favorite']) ? ' active' : '';
                     $fileUrl = htmlspecialchars($it['url'], ENT_QUOTES);
                     $fileNameEsc = htmlspecialchars($it['name'], ENT_QUOTES);
                     $fileSizeStr = human_filesize($it['size']);
+                    // owner and modified date
+                    $owner = htmlspecialchars($ownerName, ENT_QUOTES);
+                    $modifiedRaw = $it['updated_at'] ?? $it['modified_at'] ?? $it['created_at'] ?? '';
+                    $modified = $modifiedRaw ? date('d M Y', strtotime($modifiedRaw)) : '-';
                     $mime = htmlspecialchars($it['mime'], ENT_QUOTES);
 
                     // Determine icon path based on mime type
@@ -574,33 +653,32 @@ $userId = $_SESSION['user_id'] ?? null;
                         $iconPath = 'assets/icons/vid.png';
                     }
 
-                    // Using HEREDOC for clarity
-                    echo <<<HTML
-<div class="file-item" data-file-id="{$fileIdAttr}" data-file-url="{$fileUrl}" data-file-name="{$fileNameEsc}" data-file-mime="{$mime}">
-  <div class="file-card">
-    <div class="file-card-inner">
-      <div class="card-overlay">
-        <button class="btn btn-sm btn-light fav-btn" data-favorite="{$isFav}" title="Tambah ke favorit"><i class="fa fa-star"></i></button>
-        <button class="btn btn-sm btn-light del-btn" title="Hapus"><i class="fa fa-trash"></i></button>
-      </div>
-HTML;
+                                        // Using HEREDOC for clarity - render item with columns for list mode
+                                        $iconAttr = strpos($it['mime'], 'image/') === 0 ? "<img src=\"{$fileUrl}\" alt=\"{$fileNameEsc}\" />" : "<img src=\"{$iconPath}\" class=\"icon-fallback\" alt=\"{$fileNameEsc}\" />";
 
-                    if (strpos($it['mime'], 'image/') === 0) {
-                        echo '<div class="file-thumbnail"><img src="' . $fileUrl . '" alt="' . $fileNameEsc . '"></div>';
-                    } else {
-                        echo '<div class="file-thumbnail"><img src="' . $iconPath . '" alt="' . $fileNameEsc . '" style="max-width: 60px; max-height: 60px;"></div>';
-                    }
+                                        echo <<<HTML
+<div class="file-item" data-file-id="{$fileIdAttr}" data-file-url="{$fileUrl}" data-file-name="{$fileNameEsc}" data-file-mime="{$mime}"
+    data-name="{$fileNameEsc}"
+    data-category="{$mime}">
+    <div class="file-card">
+        <div class="file-card-inner">
+            {$iconAttr}
+            <div class="card-overlay">
+                <button class="btn btn-sm btn-light fav-btn{$favClass}" data-file-id="{$fileIdAttr}" data-favorite="{$isFav}" title="Tambah ke favorit"><i class="fa fa-star"></i></button>
+                <button class="btn btn-sm btn-light del-btn" title="Hapus"><i class="fa fa-trash"></i></button>
+            </div>
+        </div>
 
-                    // more button + menu (ellipsis)
-                    echo <<<HTML
-    </div><!-- .file-card-inner -->
-    <button class="more-btn" aria-label="Opsi"><i class="fa fa-ellipsis-v"></i></button>
-
-    <div class="file-info">
-      <p class="file-name">{$fileNameEsc}</p>
-      <p class="file-size">{$fileSizeStr}</p>
-    </div>
-  </div><!-- .file-card -->
+        <div class="file-row-columns">
+            <div class="col col-name"><p class="file-name">{$fileNameEsc}</p></div>
+            <div class="col col-owner">{$owner}</div>
+            <div class="col col-modified">{$modified}</div>
+            <div class="col col-size">{$fileSizeStr}</div>
+            <div class="col col-actions">
+                <button class="more-btn" aria-label="Opsi"><i class="fa fa-ellipsis-v"></i></button>
+            </div>
+        </div>
+    </div><!-- .file-card -->
 </div><!-- .file-item -->
 HTML;
                 }
@@ -608,6 +686,75 @@ HTML;
             }
         }
         ?>
+    <script>
+    // Wire search input to filter results in real-time
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('file-search');
+            const searchBtn = document.getElementById('file-search-btn');
+        const categoryChips = document.querySelectorAll('.category-chip');
+        const grid = document.getElementById('file-grid');
+        
+        if (!searchInput || !grid) return;
+        
+        // Activate chip filter on click
+        categoryChips.forEach(chip => {
+            chip.addEventListener('click', function () {
+                const filterValue = this.getAttribute('data-filter');
+                this.classList.toggle('active');
+                
+                // Update search input value
+                if (this.classList.contains('active')) {
+                    searchInput.value = filterValue.charAt(0).toUpperCase() + filterValue.slice(1);
+                } else {
+                    searchInput.value = searchInput.value.split(' ').filter(v => v.toLowerCase() !== filterValue).join(' ');
+                }
+                
+                // Trigger input event to filter items
+                searchInput.dispatchEvent(new Event('input'));
+            });
+        });
+
+            // Add search button click event to trigger filtering
+            if (searchBtn) {
+                searchBtn.addEventListener('click', function () {
+                    searchInput.dispatchEvent(new Event('input'));
+                });
+            }
+        
+        function getCategory(mimeType) {
+            if (!mimeType) return 'other';
+            if (mimeType.startsWith('image/')) return 'image';
+            if (mimeType.startsWith('video/')) return 'video';
+            if (mimeType.startsWith('audio/')) return 'audio';
+            if (mimeType.includes('word') || mimeType.includes('sheet') || mimeType.includes('presentation') || mimeType.includes('pdf')) return 'document';
+            if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return 'archive';
+            return 'other';
+        }
+        
+        function filterItems() {
+            const searchValue = searchInput.value.toLowerCase().trim();
+            const categoryValues = Array.from(categoryChips).filter(chip => chip.classList.contains('active')).map(chip => chip.getAttribute('data-filter'));
+            const gridItems = grid.querySelectorAll('.file-item');
+            
+            gridItems.forEach(item => {
+                const fileName = (item.dataset.fileName || '').toLowerCase();
+                const mimeType = item.dataset.fileMime || '';
+                const itemCategory = getCategory(mimeType);
+                
+                const matchesSearch = searchValue === '' || fileName.includes(searchValue);
+                const matchesCategory = categoryValues.length === 0 || categoryValues.includes(itemCategory);
+                
+                if (matchesSearch && matchesCategory) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterItems);
+    });
+    </script>
     </div>
 </div>
 
@@ -684,6 +831,16 @@ document.addEventListener('DOMContentLoaded', function () {
             handleMenuAction(e);
             closeAllMenus();
             return;
+        }
+    });
+
+    // Double-click handler for preview
+    grid.addEventListener('dblclick', function (e) {
+        if (e.target.closest('.file-item')) {
+            const item = e.target.closest('.file-item');
+            const fileId = item.dataset.fileId;
+            const fileName = item.dataset.fileName;
+            showThumbnailPreview(fileId, fileName);
         }
     });
 
@@ -971,25 +1128,46 @@ document.addEventListener('DOMContentLoaded', function () {
     function showThumbnailPreview(fileId, fileName) {
         const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
         if (!fileItem) return;
-        
+
         const fileUrl = fileItem.dataset.fileUrl;
         const mimeType = fileItem.dataset.fileMime;
         let content = '';
-        
+        let width = '600px';
+        let height = '800px';
+
         if (mimeType && mimeType.startsWith('image/')) {
-            content = `<img src="${fileUrl}" style="max-width: 300px; max-height: 300px; border-radius: 8px;">`;
+            content = `<img src="${fileUrl}" style="max-width: 100%; max-height: 100%; border-radius: 8px;">`;
+            width = 'auto';
+            height = 'auto';
+        } else if (mimeType === 'application/pdf') {
+            content = `<iframe src="${fileUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+        } else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('sheet')) {
+            // Use Google Docs viewer for Excel files
+            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(window.location.origin + '/' + fileUrl)}&embedded=true`;
+            content = `<iframe src="${googleViewerUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+        } else if (mimeType.includes('word') || mimeType.includes('document')) {
+            // Use Google Docs viewer for Word files
+            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(window.location.origin + '/' + fileUrl)}&embedded=true`;
+            content = `<iframe src="${googleViewerUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+        } else if (mimeType && mimeType.startsWith('video/')) {
+            content = `<video controls style="max-width: 100%; max-height: 100%;"><source src="${fileUrl}" type="${mimeType}">Your browser does not support the video tag.</video>`;
+        } else if (mimeType && mimeType.startsWith('audio/')) {
+            content = `<audio controls style="width: 100%;"><source src="${fileUrl}" type="${mimeType}">Your browser does not support the audio element.</audio>`;
         } else {
             const iconPath = getFileIcon(mimeType);
-            content = `<img src="${iconPath}" style="width: 120px; height: 120px; border-radius: 8px;">`;
+            content = `<div style="text-align: center;"><img src="${iconPath}" style="width: 120px; height: 120px; border-radius: 8px;"><p style="margin-top: 10px;">${fileName}</p><p style="color: #666;">Preview not available for this file type.</p></div>`;
         }
-        
+
         Swal.fire({
             title: fileName,
             html: content,
-            icon: 'info',
-            confirmButtonText: 'Tutup',
-            confirmButtonColor: '#007bff',
-            position: 'center'
+            width: width,
+            height: height,
+            showConfirmButton: false,
+            showCloseButton: true,
+            customClass: {
+                popup: 'preview-modal'
+            }
         });
     }
 });
