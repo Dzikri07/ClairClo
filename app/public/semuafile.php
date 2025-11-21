@@ -99,6 +99,17 @@ $userId = $_SESSION['user_id'] ?? null;
 
     #category-filter {
         width: 150px !important;
+        border-radius: 20px !important;
+        border: 1px solid #dee2e6 !important;
+    }
+
+    #category-filter:hover {
+        border-color: #00f5d4 !important;
+    }
+
+    #category-filter:focus {
+        border-color: #00f5d4 !important;
+        box-shadow: 0 0 0 0.2rem rgba(0, 245, 212, 0.25) !important;
     }
 
     #file-grid {
@@ -456,6 +467,21 @@ $userId = $_SESSION['user_id'] ?? null;
         order: -1;
     }
 
+    /* Filter visibility override */
+    .file-item.hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+    }
+
+    .file-item:not(.hidden) {
+        display: block !important;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
         #file-grid {
@@ -696,23 +722,14 @@ HTML;
         
         if (!searchInput || !grid) return;
         
-        // Activate chip filter on click
-        categoryChips.forEach(chip => {
-            chip.addEventListener('click', function () {
-                const filterValue = this.getAttribute('data-filter');
-                this.classList.toggle('active');
-                
-                // Update search input value
-                if (this.classList.contains('active')) {
-                    searchInput.value = filterValue.charAt(0).toUpperCase() + filterValue.slice(1);
-                } else {
-                    searchInput.value = searchInput.value.split(' ').filter(v => v.toLowerCase() !== filterValue).join(' ');
-                }
-                
+        // Handle category filter dropdown
+        const categoryFilter = document.getElementById('category-filter');
+        if (categoryFilter) {
+            categoryFilter.addEventListener('change', function () {
                 // Trigger input event to filter items
                 searchInput.dispatchEvent(new Event('input'));
             });
-        });
+        }
 
             // Add search button click event to trigger filtering
             if (searchBtn) {
@@ -733,21 +750,22 @@ HTML;
         
         function filterItems() {
             const searchValue = searchInput.value.toLowerCase().trim();
-            const categoryValues = Array.from(categoryChips).filter(chip => chip.classList.contains('active')).map(chip => chip.getAttribute('data-filter'));
+            const categoryFilter = document.getElementById('category-filter');
+            const selectedCategory = categoryFilter ? categoryFilter.value : '';
             const gridItems = grid.querySelectorAll('.file-item');
-            
+
             gridItems.forEach(item => {
                 const fileName = (item.dataset.fileName || '').toLowerCase();
                 const mimeType = item.dataset.fileMime || '';
                 const itemCategory = getCategory(mimeType);
-                
+
                 const matchesSearch = searchValue === '' || fileName.includes(searchValue);
-                const matchesCategory = categoryValues.length === 0 || categoryValues.includes(itemCategory);
-                
+                const matchesCategory = selectedCategory === '' || itemCategory === selectedCategory;
+
                 if (matchesSearch && matchesCategory) {
-                    item.style.display = '';
+                    item.classList.remove('hidden');
                 } else {
-                    item.style.display = 'none';
+                    item.classList.add('hidden');
                 }
             });
         }
@@ -759,418 +777,418 @@ HTML;
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const grid = document.getElementById('file-grid');
-    const gridBtn = document.getElementById('grid-view');
-    const listBtn = document.getElementById('list-view');
+    document.addEventListener('DOMContentLoaded', function () {
+        const grid = document.getElementById('file-grid');
+        const gridBtn = document.getElementById('grid-view');
+        const listBtn = document.getElementById('list-view');
 
-    if (!grid) return;
+        if (!grid) return;
 
-    // Initialize grid view mode by default
-    grid.classList.add('grid-view-mode');
-    grid.classList.remove('list-view-mode');
-    if (gridBtn) gridBtn.classList.add('active');
-    if (listBtn) listBtn.classList.remove('active');
+        // Initialize grid view mode by default
+        grid.classList.add('grid-view-mode');
+        grid.classList.remove('list-view-mode');
+        if (gridBtn) gridBtn.classList.add('active');
+        if (listBtn) listBtn.classList.remove('active');
 
-    // View toggle handlers
-    if (gridBtn) {
-        gridBtn.addEventListener('click', function() {
-            grid.classList.remove('list-view-mode');
-            grid.classList.add('grid-view-mode');
-            gridBtn.classList.add('active');
-            listBtn.classList.remove('active');
-            closeAllMenus();
-        });
-    }
-
-    if (listBtn) {
-        listBtn.addEventListener('click', function() {
-            grid.classList.add('list-view-mode');
-            grid.classList.remove('grid-view-mode');
-            listBtn.classList.add('active');
-            gridBtn.classList.remove('active');
-            closeAllMenus();
-        });
-    }
-
-    // Close all menus when clicking outside
-    document.addEventListener('click', function (e) {
-        if (!e.target.closest('.more-btn') && !e.target.closest('.more-menu')) {
-            closeAllMenus();
-        }
-    });
-
-    // Delegated click handlers for all actions
-    grid.addEventListener('click', function (e) {
-        // Favorite button (overlay - grid only)
-        if (e.target.closest('.fav-btn')) {
-            const item = e.target.closest('.file-item');
-            const fileId = item.dataset.fileId;
-            toggleFavorite(fileId, item);
-            return;
-        }
-
-        // Delete button (overlay - grid only)
-        if (e.target.closest('.del-btn')) {
-            const item = e.target.closest('.file-item');
-            const fileId = item.dataset.fileId;
-            doDelete(fileId, item);
-            return;
-        }
-
-        // More button toggle
-        if (e.target.closest('.more-btn')) {
-            e.stopPropagation();
-            const item = e.target.closest('.file-item');
-            toggleMoreMenu(item);
-            return;
-        }
-
-        // Menu item clicks
-        if (e.target.closest('.more-item')) {
-            handleMenuAction(e);
-            closeAllMenus();
-            return;
-        }
-    });
-
-    // Double-click handler for preview
-    grid.addEventListener('dblclick', function (e) {
-        if (e.target.closest('.file-item')) {
-            const item = e.target.closest('.file-item');
-            const fileId = item.dataset.fileId;
-            const fileName = item.dataset.fileName;
-            showThumbnailPreview(fileId, fileName);
-        }
-    });
-
-    function toggleMoreMenu(fileItem) {
-        if (!fileItem) return;
-        
-        closeAllMenus(fileItem);
-        
-        const btn = fileItem.querySelector('.more-btn');
-        if (!btn) return;
-        
-        let menu = fileItem.querySelector('.more-menu');
-        if (!menu) {
-            menu = createMenuElement();
-            fileItem.appendChild(menu);
-        }
-
-        menu.classList.add('show');
-        
-        const rect = btn.getBoundingClientRect();
-        const menuW = menu.offsetWidth;
-        const menuH = menu.offsetHeight;
-        
-        let left = rect.right - menuW;
-        if (left < 8) left = 8;
-        if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
-        
-        let top = rect.bottom + 6;
-        if (top + menuH > window.innerHeight - 8) {
-            top = rect.top - menuH - 6;
-            if (top < 8) top = 8;
-        }
-        
-        menu.style.left = left + 'px';
-        menu.style.top = top + 'px';
-        menu.dataset.fileId = fileItem.dataset.fileId;
-        menu.dataset.fileUrl = fileItem.dataset.fileUrl;
-        menu.dataset.fileName = fileItem.dataset.fileName;
-    }
-
-    function createMenuElement() {
-        const menu = document.createElement('div');
-        menu.className = 'more-menu';
-        menu.role = 'menu';
-        menu.innerHTML = `
-            <button class="more-item download" title="Download"><i class="fa fa-download"></i> Download</button>
-            <button class="more-item rename" title="Ganti nama"><i class="fa fa-pencil-alt"></i> Ganti nama</button>
-            <button class="more-item share" title="Bagikan"><i class="fa fa-user-plus"></i> Bagikan</button>
-            <button class="more-item thumbnail" title="Lihat Thumbnail"><i class="fa fa-image"></i> Lihat Thumbnail</button>
-            <button class="more-item favorite-menu" title="Tambahkan ke favorit"><i class="fa fa-star"></i> Favorit</button>
-            <button class="more-item delete-menu" title="Hapus"><i class="fa fa-trash"></i> Hapus</button>
-        `;
-        return menu;
-    }
-
-    function handleMenuAction(e) {
-        const action = e.target.closest('.more-item');
-        if (!action) return;
-        
-        const menu = action.closest('.more-menu');
-        const fileId = menu.dataset.fileId;
-        const fileName = menu.dataset.fileName || '';
-        const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
-
-        if (action.classList.contains('download')) {
-            if (!fileId) return;
-            const url = 'download.php?file_id=' + encodeURIComponent(fileId);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName || '';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil',
-                text: 'File berhasil diunduh: ' + fileName,
-                position: 'bottom-right',
-                toast: true,
-                showConfirmButton: false,
-                timer: 3000
+        // View toggle handlers
+        if (gridBtn) {
+            gridBtn.addEventListener('click', function() {
+                grid.classList.remove('list-view-mode');
+                grid.classList.add('grid-view-mode');
+                gridBtn.classList.add('active');
+                listBtn.classList.remove('active');
+                closeAllMenus();
             });
-        } else if (action.classList.contains('rename')) {
-            const currentName = fileName || '';
-            const newName = prompt('Ganti nama file menjadi:', currentName);
-            if (newName !== null && newName.trim() !== '') {
-                fetch('rename.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_id: fileId, new_name: newName.trim() })
-                }).then(r => r.json()).then(j => {
-                    if (j.success) {
-                        if (fileItem) {
-                            const nameEl = fileItem.querySelector('.file-name');
-                            if (nameEl) nameEl.textContent = newName.trim();
-                            fileItem.dataset.fileName = newName.trim();
-                        }
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Berhasil',
-                            text: 'Nama file berhasil diubah menjadi: ' + j.new_name,
-                            position: 'bottom-right',
-                            toast: true,
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal',
-                            text: j.message || 'Gagal mengganti nama',
-                            position: 'bottom-right',
-                            toast: true,
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    }
-                }).catch(() => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Network error',
-                        position: 'bottom-right',
-                        toast: true,
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
-                });
-            }
-        } else if (action.classList.contains('share')) {
-            Swal.fire({
-                icon: 'info',
-                title: 'Info',
-                text: 'Fungsi bagikan belum diimplementasikan di demo ini.',
-                position: 'bottom-right',
-                toast: true,
-                showConfirmButton: false,
-                timer: 3000
-            });
-        } else if (action.classList.contains('thumbnail')) {
-            showThumbnailPreview(fileId, fileName);
-        } else if (action.classList.contains('favorite-menu')) {
-            toggleFavorite(fileId, fileItem);
-        } else if (action.classList.contains('delete-menu')) {
-            doDelete(fileId, fileItem);
         }
-    }
 
-    function closeAllMenus(exceptItem) {
-        document.querySelectorAll('.more-menu.show').forEach(menu => {
-            if (exceptItem && exceptItem.contains(menu)) return;
-            menu.classList.remove('show');
-            menu.style.left = '';
-            menu.style.top = '';
-        });
-        document.querySelectorAll('.file-item.menu-open').forEach(item => {
-            if (!exceptItem || !exceptItem.contains(item)) {
-                item.classList.remove('menu-open');
+        if (listBtn) {
+            listBtn.addEventListener('click', function() {
+                grid.classList.add('list-view-mode');
+                grid.classList.remove('grid-view-mode');
+                listBtn.classList.add('active');
+                gridBtn.classList.remove('active');
+                closeAllMenus();
+            });
+        }
+
+        // Close all menus when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.more-btn') && !e.target.closest('.more-menu')) {
+                closeAllMenus();
             }
         });
-    }
 
-    function toggleFavorite(fileId, itemEl) {
-        if (!fileId) return;
-        fetch('favorite.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_id: fileId })
-        }).then(r => r.json()).then(j => {
-            if (j.success) {
-                if (itemEl) {
-                    itemEl.classList.toggle('favorited', j.is_favorite == 1);
-                    const favBtn = itemEl.querySelector('.fav-btn');
-                    if (favBtn) favBtn.dataset.favorite = j.is_favorite == 1 ? 'true' : 'false';
-                }
-                updateCounts(j.counts);
-                const msg = j.is_favorite == 1 ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit';
+        // Delegated click handlers for all actions
+        grid.addEventListener('click', function (e) {
+            // Favorite button (overlay - grid only)
+            if (e.target.closest('.fav-btn')) {
+                const item = e.target.closest('.file-item');
+                const fileId = item.dataset.fileId;
+                toggleFavorite(fileId, item);
+                return;
+            }
+
+            // Delete button (overlay - grid only)
+            if (e.target.closest('.del-btn')) {
+                const item = e.target.closest('.file-item');
+                const fileId = item.dataset.fileId;
+                doDelete(fileId, item);
+                return;
+            }
+
+            // More button toggle
+            if (e.target.closest('.more-btn')) {
+                e.stopPropagation();
+                const item = e.target.closest('.file-item');
+                toggleMoreMenu(item);
+                return;
+            }
+
+            // Menu item clicks
+            if (e.target.closest('.more-item')) {
+                handleMenuAction(e);
+                closeAllMenus();
+                return;
+            }
+        });
+
+        // Double-click handler for preview
+        grid.addEventListener('dblclick', function (e) {
+            if (e.target.closest('.file-item')) {
+                const item = e.target.closest('.file-item');
+                const fileId = item.dataset.fileId;
+                const fileName = item.dataset.fileName;
+                showThumbnailPreview(fileId, fileName);
+            }
+        });
+
+        function toggleMoreMenu(fileItem) {
+            if (!fileItem) return;
+            
+            closeAllMenus(fileItem);
+            
+            const btn = fileItem.querySelector('.more-btn');
+            if (!btn) return;
+            
+            let menu = fileItem.querySelector('.more-menu');
+            if (!menu) {
+                menu = createMenuElement();
+                fileItem.appendChild(menu);
+            }
+
+            menu.classList.add('show');
+            
+            const rect = btn.getBoundingClientRect();
+            const menuW = menu.offsetWidth;
+            const menuH = menu.offsetHeight;
+            
+            let left = rect.right - menuW;
+            if (left < 8) left = 8;
+            if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+            
+            let top = rect.bottom + 6;
+            if (top + menuH > window.innerHeight - 8) {
+                top = rect.top - menuH - 6;
+                if (top < 8) top = 8;
+            }
+            
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.dataset.fileId = fileItem.dataset.fileId;
+            menu.dataset.fileUrl = fileItem.dataset.fileUrl;
+            menu.dataset.fileName = fileItem.dataset.fileName;
+        }
+
+        function createMenuElement() {
+            const menu = document.createElement('div');
+            menu.className = 'more-menu';
+            menu.role = 'menu';
+            menu.innerHTML = `
+                <button class="more-item download" title="Download"><i class="fa fa-download"></i> Download</button>
+                <button class="more-item rename" title="Ganti nama"><i class="fa fa-pencil-alt"></i> Ganti nama</button>
+                <button class="more-item share" title="Bagikan"><i class="fa fa-user-plus"></i> Bagikan</button>
+                <button class="more-item thumbnail" title="Lihat Thumbnail"><i class="fa fa-image"></i> Lihat Thumbnail</button>
+                <button class="more-item favorite-menu" title="Tambahkan ke favorit"><i class="fa fa-star"></i> Favorit</button>
+                <button class="more-item delete-menu" title="Hapus"><i class="fa fa-trash"></i> Hapus</button>
+            `;
+            return menu;
+        }
+
+        function handleMenuAction(e) {
+            const action = e.target.closest('.more-item');
+            if (!action) return;
+            
+            const menu = action.closest('.more-menu');
+            const fileId = menu.dataset.fileId;
+            const fileName = menu.dataset.fileName || '';
+            const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
+
+            if (action.classList.contains('download')) {
+                if (!fileId) return;
+                const url = 'download.php?file_id=' + encodeURIComponent(fileId);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName || '';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
                 Swal.fire({
                     icon: 'success',
                     title: 'Berhasil',
-                    text: msg,
+                    text: 'File berhasil diunduh: ' + fileName,
                     position: 'bottom-right',
                     toast: true,
                     showConfirmButton: false,
                     timer: 3000
                 });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal',
-                    text: j.message || 'Gagal',
-                    position: 'bottom-right',
-                    toast: true,
-                    showConfirmButton: false,
-                    timer: 3000
-                });
-            }
-        }).catch(() => {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Network error',
-                position: 'bottom-right',
-                toast: true,
-                showConfirmButton: false,
-                timer: 3000
-            });
-        });
-    }
-
-    function doDelete(fileId, itemEl) {
-        if (!fileId) return;
-        Swal.fire({
-            title: 'Hapus File?',
-            text: 'File ini akan dipindahkan ke sampah',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Ya, Hapus',
-            confirmButtonColor: '#d33',
-            cancelButtonText: 'Batal',
-            position: 'bottom-right'
-        }).then(result => {
-            if (result.isConfirmed) {
-                fetch('delete.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_id: fileId })
-                }).then(r => r.json()).then(j => {
-                    if (j.success) {
-                        if (itemEl) itemEl.remove();
-                        updateCounts(j.counts || {});
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Berhasil',
-                            text: 'File berhasil dihapus',
-                            position: 'bottom-right',
-                            toast: true,
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    } else {
+            } else if (action.classList.contains('rename')) {
+                const currentName = fileName || '';
+                const newName = prompt('Ganti nama file menjadi:', currentName);
+                if (newName !== null && newName.trim() !== '') {
+                    fetch('rename.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_id: fileId, new_name: newName.trim() })
+                    }).then(r => r.json()).then(j => {
+                        if (j.success) {
+                            if (fileItem) {
+                                const nameEl = fileItem.querySelector('.file-name');
+                                if (nameEl) nameEl.textContent = newName.trim();
+                                fileItem.dataset.fileName = newName.trim();
+                            }
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil',
+                                text: 'Nama file berhasil diubah menjadi: ' + j.new_name,
+                                position: 'bottom-right',
+                                toast: true,
+                                showConfirmButton: false,
+                                timer: 3000
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal',
+                                text: j.message || 'Gagal mengganti nama',
+                                position: 'bottom-right',
+                                toast: true,
+                                showConfirmButton: false,
+                                timer: 3000
+                            });
+                        }
+                    }).catch(() => {
                         Swal.fire({
                             icon: 'error',
-                            title: 'Gagal',
-                            text: j.message || 'Gagal',
+                            title: 'Error',
+                            text: 'Network error',
                             position: 'bottom-right',
                             toast: true,
                             showConfirmButton: false,
                             timer: 3000
                         });
+                    });
+                }
+            } else if (action.classList.contains('share')) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Info',
+                    text: 'Fungsi bagikan belum diimplementasikan di demo ini.',
+                    position: 'bottom-right',
+                    toast: true,
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            } else if (action.classList.contains('thumbnail')) {
+                showThumbnailPreview(fileId, fileName);
+            } else if (action.classList.contains('favorite-menu')) {
+                toggleFavorite(fileId, fileItem);
+            } else if (action.classList.contains('delete-menu')) {
+                doDelete(fileId, fileItem);
+            }
+        }
+
+        function closeAllMenus(exceptItem) {
+            document.querySelectorAll('.more-menu.show').forEach(menu => {
+                if (exceptItem && exceptItem.contains(menu)) return;
+                menu.classList.remove('show');
+                menu.style.left = '';
+                menu.style.top = '';
+            });
+            document.querySelectorAll('.file-item.menu-open').forEach(item => {
+                if (!exceptItem || !exceptItem.contains(item)) {
+                    item.classList.remove('menu-open');
+                }
+            });
+        }
+
+        function toggleFavorite(fileId, itemEl) {
+            if (!fileId) return;
+            fetch('favorite.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: fileId })
+            }).then(r => r.json()).then(j => {
+                if (j.success) {
+                    if (itemEl) {
+                        itemEl.classList.toggle('favorited', j.is_favorite == 1);
+                        const favBtn = itemEl.querySelector('.fav-btn');
+                        if (favBtn) favBtn.dataset.favorite = j.is_favorite == 1 ? 'true' : 'false';
                     }
-                }).catch(() => {
+                    updateCounts(j.counts);
+                    const msg = j.is_favorite == 1 ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit';
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Network error',
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: msg,
                         position: 'bottom-right',
                         toast: true,
                         showConfirmButton: false,
                         timer: 3000
                     });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: j.message || 'Gagal',
+                        position: 'bottom-right',
+                        toast: true,
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
+            }).catch(() => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Network error',
+                    position: 'bottom-right',
+                    toast: true,
+                    showConfirmButton: false,
+                    timer: 3000
                 });
-            }
-        });
-    }
-
-    function updateCounts(c) {
-        if (!c) return;
-        const t = document.getElementById('total-files-count');
-        const f = document.getElementById('favorite-files-count');
-        const tr = document.getElementById('trash-files-count');
-        if (t && typeof c.total !== 'undefined') t.textContent = c.total + ' File';
-        if (f && typeof c.favorites !== 'undefined') f.textContent = c.favorites + ' Favorit';
-        if (tr && typeof c.trash !== 'undefined') tr.textContent = c.trash + ' Sampah';
-    }
-
-    function getFileIcon(mimeType) {
-        if (!mimeType) return 'assets/icons/file.png';
-        if (mimeType.startsWith('image/')) return 'assets/icons/img.png';
-        if (mimeType.startsWith('audio/')) return 'assets/icons/music.png';
-        if (mimeType.startsWith('video/')) return 'assets/icons/vid.png';
-        return 'assets/icons/file.png';
-    }
-
-    function showThumbnailPreview(fileId, fileName) {
-        const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
-        if (!fileItem) return;
-
-        const fileUrl = fileItem.dataset.fileUrl;
-        const mimeType = fileItem.dataset.fileMime;
-        let content = '';
-        let width = '600px';
-        let height = '800px';
-
-        if (mimeType && mimeType.startsWith('image/')) {
-            content = `<img src="${fileUrl}" style="max-width: 100%; max-height: 100%; border-radius: 8px;">`;
-            width = 'auto';
-            height = 'auto';
-        } else if (mimeType === 'application/pdf') {
-            content = `<iframe src="${fileUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
-        } else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('sheet')) {
-            // Use Google Docs viewer for Excel files
-            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(window.location.origin + '/' + fileUrl)}&embedded=true`;
-            content = `<iframe src="${googleViewerUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
-        } else if (mimeType.includes('word') || mimeType.includes('document')) {
-            // Use Google Docs viewer for Word files
-            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(window.location.origin + '/' + fileUrl)}&embedded=true`;
-            content = `<iframe src="${googleViewerUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
-        } else if (mimeType && mimeType.startsWith('video/')) {
-            content = `<video controls style="max-width: 100%; max-height: 100%;"><source src="${fileUrl}" type="${mimeType}">Your browser does not support the video tag.</video>`;
-        } else if (mimeType && mimeType.startsWith('audio/')) {
-            content = `<audio controls style="width: 100%;"><source src="${fileUrl}" type="${mimeType}">Your browser does not support the audio element.</audio>`;
-        } else {
-            const iconPath = getFileIcon(mimeType);
-            content = `<div style="text-align: center;"><img src="${iconPath}" style="width: 120px; height: 120px; border-radius: 8px;"><p style="margin-top: 10px;">${fileName}</p><p style="color: #666;">Preview not available for this file type.</p></div>`;
+            });
         }
 
-        Swal.fire({
-            title: fileName,
-            html: content,
-            width: width,
-            height: height,
-            showConfirmButton: false,
-            showCloseButton: true,
-            customClass: {
-                popup: 'preview-modal'
+        function doDelete(fileId, itemEl) {
+            if (!fileId) return;
+            Swal.fire({
+                title: 'Hapus File?',
+                text: 'File ini akan dipindahkan ke sampah',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Hapus',
+                confirmButtonColor: '#d33',
+                cancelButtonText: 'Batal',
+                position: 'bottom-right'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    fetch('delete.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_id: fileId })
+                    }).then(r => r.json()).then(j => {
+                        if (j.success) {
+                            if (itemEl) itemEl.remove();
+                            updateCounts(j.counts || {});
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil',
+                                text: 'File berhasil dihapus',
+                                position: 'bottom-right',
+                                toast: true,
+                                showConfirmButton: false,
+                                timer: 3000
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal',
+                                text: j.message || 'Gagal',
+                                position: 'bottom-right',
+                                toast: true,
+                                showConfirmButton: false,
+                                timer: 3000
+                            });
+                        }
+                    }).catch(() => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Network error',
+                            position: 'bottom-right',
+                            toast: true,
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    });
+                }
+            });
+        }
+
+        function updateCounts(c) {
+            if (!c) return;
+            const t = document.getElementById('total-files-count');
+            const f = document.getElementById('favorite-files-count');
+            const tr = document.getElementById('trash-files-count');
+            if (t && typeof c.total !== 'undefined') t.textContent = c.total + ' File';
+            if (f && typeof c.favorites !== 'undefined') f.textContent = c.favorites + ' Favorit';
+            if (tr && typeof c.trash !== 'undefined') tr.textContent = c.trash + ' Sampah';
+        }
+
+        function getFileIcon(mimeType) {
+            if (!mimeType) return 'assets/icons/file.png';
+            if (mimeType.startsWith('image/')) return 'assets/icons/img.png';
+            if (mimeType.startsWith('audio/')) return 'assets/icons/music.png';
+            if (mimeType.startsWith('video/')) return 'assets/icons/vid.png';
+            return 'assets/icons/file.png';
+        }
+
+        function showThumbnailPreview(fileId, fileName) {
+            const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
+            if (!fileItem) return;
+
+            const fileUrl = fileItem.dataset.fileUrl;
+            const mimeType = fileItem.dataset.fileMime;
+            let content = '';
+            let width = '600px';
+            let height = '800px';
+
+            if (mimeType && mimeType.startsWith('image/')) {
+                content = `<img src="${fileUrl}" style="max-width: 100%; max-height: 100%; border-radius: 8px;">`;
+                width = 'auto';
+                height = 'auto';
+            } else if (mimeType === 'application/pdf') {
+                content = `<iframe src="${fileUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+            } else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('sheet')) {
+                // Use Google Docs viewer for Excel files
+                const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(window.location.origin + '/' + fileUrl)}&embedded=true`;
+                content = `<iframe src="${googleViewerUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+            } else if (mimeType.includes('word') || mimeType.includes('document')) {
+                // Use Google Docs viewer for Word files
+                const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(window.location.origin + '/' + fileUrl)}&embedded=true`;
+                content = `<iframe src="${googleViewerUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+            } else if (mimeType && mimeType.startsWith('video/')) {
+                content = `<video controls style="max-width: 100%; max-height: 100%;"><source src="${fileUrl}" type="${mimeType}">Your browser does not support the video tag.</video>`;
+            } else if (mimeType && mimeType.startsWith('audio/')) {
+                content = `<audio controls style="width: 100%;"><source src="${fileUrl}" type="${mimeType}">Your browser does not support the audio element.</audio>`;
+            } else {
+                const iconPath = getFileIcon(mimeType);
+                content = `<div style="text-align: center;"><img src="${iconPath}" style="width: 120px; height: 120px; border-radius: 8px;"><p style="margin-top: 10px;">${fileName}</p><p style="color: #666;">Preview not available for this file type.</p></div>`;
             }
-        });
-    }
-});
+
+            Swal.fire({
+                title: fileName,
+                html: content,
+                width: width,
+                height: height,
+                showConfirmButton: false,
+                showCloseButton: true,
+                customClass: {
+                    popup: 'preview-modal'
+                }
+            });
+        }
+    });
 </script>
 </body>
 </html>

@@ -10,11 +10,45 @@ if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
 
 $internalDir = __DIR__ . '/../../internal_files';
 $backupDir = $internalDir . '/backup';
+$uploadsDir = __DIR__ . '/../../uploads'; // Base uploads directory
+
 if (!is_dir($internalDir)) {
     @mkdir($internalDir, 0755, true);
 }
 if (!is_dir($backupDir)) {
     @mkdir($backupDir, 0755, true);
+}
+
+// Handle file download - HARUS DITARUH DI AWAL SEBELUM OUTPUT APAPUN
+if (isset($_GET['download_backup'])) {
+    $filename = basename($_GET['download_backup']);
+    $filepath = $backupDir . '/' . $filename;
+    
+    if (is_file($filepath) && is_readable($filepath)) {
+        // Clear any previous output
+        if (ob_get_level()) ob_end_clean();
+        
+        // Set headers for download
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Transfer-Encoding: binary');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($filepath));
+        
+        // Flush system output buffer
+        flush();
+        
+        // Read file and output
+        readfile($filepath);
+        exit;
+    } else {
+        $_SESSION['error_message'] = 'File backup tidak ditemukan atau tidak dapat diakses.';
+        header('Location: file_internal.php?tab=backup');
+        exit;
+    }
 }
 
 // Handle delete operations BEFORE any output
@@ -52,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['internal_file'])) {
         if (move_uploaded_file($f['tmp_name'], $target)) {
             $message = 'File internal berhasil diunggah.';
             $messageType = 'success';
+            log_activity('UPLOAD_INTERNAL_FILE', "Uploaded internal file: {$name}");
         } else {
             $message = 'Gagal menyimpan file.';
             $messageType = 'danger';
@@ -62,64 +97,221 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['internal_file'])) {
     }
 }
 
-// Handle backup user files
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup') {
-    $fileId = intval($_POST['file_id']);
+// Handle backup user files - SIMPLIFIED AND WORKING VERSION
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_user') {
     $userId = intval($_POST['user_id']);
     
-    // Get file from database
-    $file = fetchOne('SELECT * FROM files WHERE id = ? AND user_id = ?', [$fileId, $userId]);
-    if ($file) {
-        // Get file path from storage
-        $storage = fetchOne('SELECT storage_path FROM file_storage_paths WHERE file_id = ?', [$fileId]);
-        if ($storage && is_file($storage['storage_path'])) {
-            $backupName = date('Y-m-d_H-i-s') . '_user' . $userId . '_' . $file['original_name'];
-            $backupFile = $backupDir . '/' . preg_replace('/[^A-Za-z0-9._-]/', '_', $backupName);
+    // Get user info
+    $user = fetchOne('SELECT username FROM users WHERE id = ?', [$userId]);
+    if (!$user) {
+        $message = 'User tidak ditemukan.';
+        $messageType = 'danger';
+    } else {
+        // Get all files for this user
+        $userFiles = fetchAll('SELECT id, original_name, filename FROM files WHERE user_id = ? AND is_trashed = 0', [$userId]);
+        
+        $backupCount = 0;
+        $backupErrors = [];
+        $debugInfo = [];
+        
+        if (empty($userFiles)) {
+            $message = "User {$user['username']} tidak memiliki file.";
+            $messageType = 'warning';
+        } else {
+            // Create user backup directory
+            $userBackupDir = $backupDir . '/user_' . $userId . '_' . preg_replace('/[^A-Za-z0-9]/', '_', $user['username']);
+            if (!is_dir($userBackupDir)) {
+                @mkdir($userBackupDir, 0755, true);
+            }
             
-            if (copy($storage['storage_path'], $backupFile)) {
-                log_activity('FILE_BACKUP', "Backup file: {$file['original_name']} (ID: {$fileId}) dari user {$userId}");
-                $message = "File berhasil dibackup: {$file['original_name']}";
+            // Get the correct base uploads path
+            $baseUploads = realpath($uploadsDir);
+            if (!$baseUploads) {
+                $baseUploads = $uploadsDir;
+            }
+            $debugInfo[] = "Base uploads: " . $baseUploads;
+            
+            foreach ($userFiles as $file) {
+                $fileFound = false;
+                $sourcePath = null;
+                
+                // Strategy 1: Try to find file using storage_paths table
+                $storage = fetchOne('SELECT storage_path FROM file_storage_paths WHERE file_id = ?', [$file['id']]);
+                if ($storage && !empty($storage['storage_path'])) {
+                    $storagePath = $storage['storage_path'];
+                    $debugInfo[] = "DB storage_path: " . $storagePath;
+                    
+                    // Convert to absolute path
+                    if (strpos($storagePath, 'uploads') === 0) {
+                        // Handle relative path like "uploads\user_3"
+                        $absolutePath = str_replace('uploads', $baseUploads, $storagePath);
+                        if (is_file($absolutePath)) {
+                            $fileFound = true;
+                            $sourcePath = $absolutePath;
+                            $debugInfo[] = "Found via DB path (converted): " . $absolutePath;
+                        }
+                    } else {
+                        // Try as absolute path
+                        if (is_file($storagePath)) {
+                            $fileFound = true;
+                            $sourcePath = $storagePath;
+                            $debugInfo[] = "Found via DB path (absolute): " . $storagePath;
+                        }
+                    }
+                }
+                
+                // Strategy 2: Scan entire uploads directory for matching files
+                if (!$fileFound) {
+                    $foundFiles = scanForFile($baseUploads, $file['filename'], $file['id'], $file['original_name']);
+                    if (!empty($foundFiles)) {
+                        $fileFound = true;
+                        $sourcePath = $foundFiles[0];
+                        $debugInfo[] = "Found via scan: " . $sourcePath;
+                    }
+                }
+                
+                // Strategy 3: Try common file locations
+                if (!$fileFound) {
+                    $commonPaths = [
+                        $baseUploads . '/' . $file['filename'],
+                        $baseUploads . '/user_' . $userId . '/' . $file['filename'],
+                        $baseUploads . '/user_' . $userId . '_' . $file['filename'],
+                        $baseUploads . '/' . $file['id'] . '_' . $file['filename'],
+                        $baseUploads . '/user_' . $userId . '/' . $file['id'] . '_' . $file['filename']
+                    ];
+                    
+                    foreach ($commonPaths as $testPath) {
+                        if (is_file($testPath)) {
+                            $fileFound = true;
+                            $sourcePath = $testPath;
+                            $debugInfo[] = "Found via common path: " . $testPath;
+                            break;
+                        }
+                    }
+                }
+                
+                if ($fileFound && $sourcePath) {
+                    $backupName = $file['id'] . '_' . preg_replace('/[^A-Za-z0-9._-]/', '_', $file['original_name']);
+                    $backupFile = $userBackupDir . '/' . $backupName;
+                    
+                    if (copy($sourcePath, $backupFile)) {
+                        $backupCount++;
+                        $debugInfo[] = "Backup SUCCESS: {$file['original_name']}";
+                    } else {
+                        $backupErrors[] = $file['original_name'] . " (copy failed)";
+                    }
+                } else {
+                    $backupErrors[] = $file['original_name'] . " (file not found)";
+                    $debugInfo[] = "NOT FOUND: " . $file['original_name'];
+                }
+            }
+            
+            if ($backupCount > 0) {
+                // Create a zip of all backed up files
+                $zipFileName = 'user_' . $userId . '_' . preg_replace('/[^A-Za-z0-9]/', '_', $user['username']) . '_backup_' . date('Y-m-d_H-i-s') . '.zip';
+                $zipFilePath = $backupDir . '/' . $zipFileName;
+                
+                if (class_exists('ZipArchive') && $backupCount > 0) {
+                    $zip = new ZipArchive();
+                    if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+                        $zipFiles = new RecursiveIteratorIterator(
+                            new RecursiveDirectoryIterator($userBackupDir),
+                            RecursiveIteratorIterator::LEAVES_ONLY
+                        );
+                        
+                        foreach ($zipFiles as $file) {
+                            if (!$file->isDir()) {
+                                $filePath = $file->getRealPath();
+                                $relativePath = substr($filePath, strlen($userBackupDir) + 1);
+                                $zip->addFile($filePath, $relativePath);
+                            }
+                        }
+                        $zip->close();
+                        
+                        // Remove the temporary directory
+                        removeDirectory($userBackupDir);
+                    }
+                }
+                
+                log_activity('BACKUP_USER_FILES', "Backed up {$backupCount} file(s) from user {$user['username']} (ID: {$userId})");
+                $message = "Berhasil backup {$backupCount} file dari user {$user['username']}.";
+                if (!empty($backupErrors)) {
+                    $message .= " Gagal backup " . count($backupErrors) . " file.";
+                }
                 $messageType = 'success';
             } else {
-                $message = 'Gagal membuat backup file.';
-                $messageType = 'danger';
+                // Clean up empty directory
+                if (is_dir($userBackupDir)) {
+                    removeDirectory($userBackupDir);
+                }
+                $message = "Tidak ada file yang berhasil dibackup dari user {$user['username']}.";
+                if (!empty($backupErrors)) {
+                    $message .= " Error: " . implode(', ', array_slice($backupErrors, 0, 3));
+                    if (count($backupErrors) > 3) {
+                        $message .= " dan " . (count($backupErrors) - 3) . " file lainnya.";
+                    }
+                }
+                $messageType = 'warning';
+                
+                // Add debug info to message for admin
+                if (count($debugInfo) > 0) {
+                    $debugSummary = array_slice($debugInfo, 0, 8);
+                    $message .= "<br><small class='text-muted'>Debug: " . implode('; ', $debugSummary) . "</small>";
+                }
             }
-        } else {
-            $message = 'File tidak ditemukan di storage.';
-            $messageType = 'danger';
         }
-    } else {
-        $message = 'File atau user tidak ditemukan.';
-        $messageType = 'danger';
     }
 }
 
-// Handle backup all user files
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_user') {
-    $userId = intval($_POST['user_id']);
-    $userFiles = fetchAll('SELECT id, original_name FROM files WHERE user_id = ? AND is_trashed = 0', [$userId]);
+// Simple function to scan for files
+function scanForFile($directory, $filename, $fileId, $originalName) {
+    $foundFiles = [];
     
-    $backupCount = 0;
-    foreach ($userFiles as $file) {
-        $storage = fetchOne('SELECT storage_path FROM file_storage_paths WHERE file_id = ?', [$file['id']]);
-        if ($storage && is_file($storage['storage_path'])) {
-            $backupName = date('Y-m-d_H-i-s') . '_user' . $userId . '_' . $file['original_name'];
-            $backupFile = $backupDir . '/' . preg_replace('/[^A-Za-z0-9._-]/', '_', $backupName);
-            
-            if (copy($storage['storage_path'], $backupFile)) {
-                $backupCount++;
+    if (!is_dir($directory)) {
+        return $foundFiles;
+    }
+    
+    try {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        
+        $searchPatterns = [
+            $filename,
+            $fileId . '_' . $filename,
+            pathinfo($filename, PATHINFO_FILENAME),
+            pathinfo($originalName, PATHINFO_FILENAME)
+        ];
+        
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                $currentFilename = $file->getFilename();
+                foreach ($searchPatterns as $pattern) {
+                    if (strpos($currentFilename, $pattern) !== false) {
+                        $foundFiles[] = $file->getRealPath();
+                        break;
+                    }
+                }
             }
         }
+    } catch (Exception $e) {
+        error_log("Scan error: " . $e->getMessage());
     }
     
-    if ($backupCount > 0) {
-        log_activity('BACKUP_USER_FILES', "Backed up {$backupCount} file(s) from user {$userId}");
-        $message = "Berhasil backup {$backupCount} file dari user ini.";
-        $messageType = 'success';
-    } else {
-        $message = 'Tidak ada file yang berhasil dibackup.';
-        $messageType = 'warning';
+    return $foundFiles;
+}
+
+// Helper function to remove directory recursively
+function removeDirectory($dir) {
+    if (!is_dir($dir)) return;
+    
+    $files = array_diff(scandir($dir), array('.', '..'));
+    foreach ($files as $file) {
+        $path = $dir . '/' . $file;
+        is_dir($path) ? removeDirectory($path) : unlink($path);
     }
+    rmdir($dir);
 }
 
 // Handle backup users table SQL
@@ -128,9 +320,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $backupTimestamp = date('Y-m-d_H-i-s');
         $backupName = "users_table_backup_{$backupTimestamp}.sql";
         $backupPath = $backupDir . '/' . $backupName;
-        
-        // Get database connection details
-        global $pdo;
         
         // Get all users data
         $users = fetchAll("SELECT * FROM users");
@@ -195,8 +384,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Handle backup server (all data with compression)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'backup_server') {
     try {
-        $uploadsDir = __DIR__ . '/../uploads';
-        $internalFilesDir = $internalDir;
+        $uploadsDir = realpath(__DIR__ . '/../uploads');
+        $internalFilesDir = realpath($internalDir);
         $backupTimestamp = date('Y-m-d_H-i-s');
         $backupName = "server_backup_{$backupTimestamp}.zip";
         $backupPath = $backupDir . '/' . $backupName;
@@ -211,40 +400,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             throw new Exception('Gagal membuat file ZIP.');
         }
         
-        // Recursive function to add files to zip
         $fileCount = 0;
-        $addFilesToZip = function($dir, $zipPath, $exclude) use (&$zip, &$fileCount, &$addFilesToZip) {
-            if (!is_dir($dir)) return;
-            
-            $files = @scandir($dir);
-            if ($files === false) return;
+        
+        // Add uploads directory if exists
+        if ($uploadsDir && is_dir($uploadsDir)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($uploadsDir),
+                RecursiveIteratorIterator::LEAVES_ONLY
+            );
             
             foreach ($files as $file) {
-                if ($file === '.' || $file === '..') continue;
-                if (in_array($file, $exclude)) continue;
-                
-                $filePath = $dir . '/' . $file;
-                $relativePath = $zipPath . '/' . $file;
-                
-                if (is_dir($filePath)) {
-                    $zip->addEmptyDir($relativePath);
-                    $addFilesToZip($filePath, $relativePath, []);
-                } else if (is_file($filePath)) {
+                if (!$file->isDir()) {
+                    $filePath = $file->getRealPath();
+                    $relativePath = 'uploads' . substr($filePath, strlen($uploadsDir));
+                    
                     if ($zip->addFile($filePath, $relativePath)) {
                         $fileCount++;
                     }
                 }
             }
-        };
-        
-        // Add uploads directory
-        if (is_dir($uploadsDir)) {
-            $addFilesToZip($uploadsDir, 'uploads', []);
         }
         
-        // Add internal_files directory (except backup subdirectory to avoid recursion)
-        if (is_dir($internalFilesDir)) {
-            $addFilesToZip($internalFilesDir, 'internal_files', ['backup']);
+        // Add internal_files directory (excluding backup subdirectory)
+        if ($internalFilesDir && is_dir($internalFilesDir)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($internalFilesDir),
+                RecursiveIteratorIterator::LEAVES_ONLY
+            );
+            
+            foreach ($files as $file) {
+                if (!$file->isDir()) {
+                    $filePath = $file->getRealPath();
+                    // Skip backup directory files
+                    if (strpos($filePath, $backupDir) !== false) {
+                        continue;
+                    }
+                    $relativePath = 'internal_files' . substr($filePath, strlen($internalFilesDir));
+                    
+                    if ($zip->addFile($filePath, $relativePath)) {
+                        $fileCount++;
+                    }
+                }
+            }
         }
         
         // Add SQL dump of all database tables
@@ -283,8 +480,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
         
-        file_put_contents($tempSqlPath, $sqlContent);
-        $zip->addFile($tempSqlPath, $sqlBackupName);
+        if (file_put_contents($tempSqlPath, $sqlContent) !== false) {
+            $zip->addFile($tempSqlPath, $sqlBackupName);
+        }
         
         $zip->close();
         
@@ -317,10 +515,15 @@ $backups = array_values(array_filter(scandir($backupDir), function($v){
     return $v !== '.' && $v !== '..'; 
 }));
 
+// Sort backups by date (newest first)
+usort($backups, function($a, $b) use ($backupDir) {
+    return filemtime($backupDir . '/' . $b) - filemtime($backupDir . '/' . $a);
+});
+
 // Get list of user files for backup
 $userFiles = [];
 try {
-    $userFiles = fetchAll('SELECT u.id, u.username, COUNT(f.id) as file_count FROM users u LEFT JOIN files f ON u.id = f.user_id WHERE u.is_admin = 0 GROUP BY u.id, u.username');
+    $userFiles = fetchAll('SELECT u.id, u.username, COUNT(f.id) as file_count FROM users u LEFT JOIN files f ON u.id = f.user_id AND f.is_trashed = 0 WHERE u.is_admin = 0 GROUP BY u.id, u.username');
 } catch (Exception $e) {
     error_log('Error fetching user files: ' . $e->getMessage());
 }
@@ -349,6 +552,15 @@ function humanBytes($bytes) {
     body.dark-mode .bg-gradient {
         background: linear-gradient(135deg, #3a2a2a 0%, #4a2a2a 100%);
     }
+    .backup-file-item:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    body.dark-mode .backup-file-item:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    .user-file-count {
+        font-size: 0.8rem;
+    }
 </style>
 </head>
 <body style="background-color:var(--bg-primary);">
@@ -368,7 +580,10 @@ if (localStorage.getItem('theme') === 'dark') {
         </div>
 
         <?php if ($message): ?>
-            <div class="alert alert-<?php echo $messageType; ?>"><?php echo htmlspecialchars($message); ?></div>
+            <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show">
+                <?php echo $message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
         <?php endif; ?>
 
         <!-- Tabs Navigation -->
@@ -482,10 +697,10 @@ if (localStorage.getItem('theme') === 'dark') {
                     <div class="col-md-6 mb-4">
                         <div class="card shadow-sm">
                             <div class="card-header bg-primary text-white">
-                                <i class="fa fa-copy me-2"></i>Backup File User
+                                <i class="fa fa-users me-2"></i>Backup File per User
                             </div>
                             <div class="card-body">
-                                <p class="text-muted small">Pilih user dan backup seluruh file mereka</p>
+                                <p class="text-muted small">Pilih user untuk backup semua file mereka. Sistem akan mencari file di berbagai lokasi yang mungkin.</p>
                                 <?php if (!empty($userFiles)): ?>
                                     <div class="list-group">
                                         <?php foreach ($userFiles as $user): ?>
@@ -494,9 +709,11 @@ if (localStorage.getItem('theme') === 'dark') {
                                                     <div>
                                                         <strong><?php echo htmlspecialchars($user['username']); ?></strong>
                                                         <br>
-                                                        <small class="text-muted"><?php echo $user['file_count']; ?> file(s)</small>
+                                                        <small class="text-muted user-file-count">
+                                                            <?php echo $user['file_count']; ?> file(s) di database
+                                                        </small>
                                                     </div>
-                                                    <form method="post" style="display:inline;" onsubmit="return confirm('Backup semua file user ini?')">
+                                                    <form method="post" style="display:inline;" onsubmit="return confirm('Backup semua file user <?php echo htmlspecialchars($user['username']); ?>?')">
                                                         <input type="hidden" name="action" value="backup_user">
                                                         <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
                                                         <button type="submit" class="btn btn-sm btn-outline-success" <?php echo $user['file_count'] == 0 ? 'disabled' : ''; ?>>
@@ -531,31 +748,36 @@ if (localStorage.getItem('theme') === 'dark') {
                                     <?php if (empty($backups)): ?>
                                         <p class="text-muted">Tidak ada backup file.</p>
                                     <?php else: ?>
-                                        <table class="table table-sm table-striped">
-                                            <thead>
-                                                <tr><th>Nama</th><th>Ukuran</th><th>Aksi</th></tr>
-                                            </thead>
-                                            <tbody id="backupTableBody">
-                                                <?php foreach ($backups as $backup):
-                                                    $full = $backupDir . '/' . $backup;
-                                                    $size = 0;
-                                                    $time = 'N/A';
-                                                    if (is_file($full)) {
-                                                        $size = @filesize($full);
-                                                        $time = date('Y-m-d H:i:s', filemtime($full));
-                                                    }
-                                                ?>
-                                                <tr class="backup-row">
-                                                    <td class="backup-name"><small><?php echo htmlspecialchars($backup); ?></small></td>
-                                                    <td><small><?php echo humanBytes($size); ?></small></td>
-                                                    <td>
-                                                        <a href="../../internal_files/backup/<?php echo rawurlencode($backup); ?>" class="btn btn-xs btn-outline-primary" style="font-size:0.75rem; padding: 2px 6px;" download>DL</a>
-                                                        <a href="?delete_backup=<?php echo rawurlencode($backup); ?>" class="btn btn-xs btn-outline-danger" style="font-size:0.75rem; padding: 2px 6px;" onclick="return confirm('Hapus backup?')">X</a>
-                                                    </td>
-                                                </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
+                                        <div class="list-group list-group-flush" id="backupList">
+                                            <?php foreach ($backups as $backup):
+                                                $full = $backupDir . '/' . $backup;
+                                                $size = 0;
+                                                $time = 'N/A';
+                                                if (is_file($full)) {
+                                                    $size = @filesize($full);
+                                                    $time = date('Y-m-d H:i:s', filemtime($full));
+                                                }
+                                            ?>
+                                            <div class="list-group-item backup-file-item backup-row">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div class="flex-grow-1">
+                                                        <div class="backup-name small fw-bold"><?php echo htmlspecialchars($backup); ?></div>
+                                                        <div class="small text-muted">
+                                                            <?php echo humanBytes($size); ?> • <?php echo $time; ?>
+                                                        </div>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="?download_backup=<?php echo rawurlencode($backup); ?>" class="btn btn-outline-primary" title="Download">
+                                                            <i class="fa fa-download"></i>
+                                                        </a>
+                                                        <a href="?delete_backup=<?php echo rawurlencode($backup); ?>" class="btn btn-outline-danger" onclick="return confirm('Hapus backup <?php echo htmlspecialchars($backup); ?>?')" title="Hapus">
+                                                            <i class="fa fa-trash"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                        </div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -572,7 +794,7 @@ if (localStorage.getItem('theme') === 'dark') {
 // Backup search functionality
 document.getElementById('backupSearch')?.addEventListener('input', function(e) {
     const searchTerm = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#backupTableBody .backup-row');
+    const rows = document.querySelectorAll('#backupList .backup-row');
     
     rows.forEach(row => {
         const fileName = row.querySelector('.backup-name').textContent.toLowerCase();
@@ -583,6 +805,15 @@ document.getElementById('backupSearch')?.addEventListener('input', function(e) {
         }
     });
 });
+
+// Auto-dismiss alerts after 5 seconds
+setTimeout(() => {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        const bsAlert = new bootstrap.Alert(alert);
+        bsAlert.close();
+    });
+}, 5000);
 </script>
 </body>
 </html>
