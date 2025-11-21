@@ -1,7 +1,6 @@
 <?php
 /**
- * connection.php - Database connection handler
- * Provides a singleton PDO connection for the application
+ * connection.php - Database connection handler for Railway
  */
 
 class DatabaseConnection
@@ -9,33 +8,42 @@ class DatabaseConnection
     private static $instance = null;
     private $pdo = null;
 
-    // Database configuration
-    private $host = '127.0.0.1';
-    private $db = 'clariocloud';
-    private $user = 'root';
-    private $pass = '';
+    // Load config from Railway ENV
+    private $host;
+    private $db;
+    private $user;
+    private $pass;
+    private $port;
     private $charset = 'utf8mb4';
 
     private function __construct()
     {
+        // Ambil variabel dari Railway
+        $this->host = $_ENV['MYSQLHOST'] ?? '127.0.0.1';
+        $this->db   = $_ENV['MYSQLDATABASE'] ?? 'clariocloud';
+        $this->user = $_ENV['MYSQLUSER'] ?? 'root';
+        $this->pass = $_ENV['MYSQLPASSWORD'] ?? '';
+        $this->port = $_ENV['MYSQLPORT'] ?? 3306;
+
         try {
-            $dsn = "mysql:host={$this->host};dbname={$this->db};charset={$this->charset}";
+            // DSN khusus Railway (harus pakai port)
+            $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->db};charset={$this->charset}";
+
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
-                PDO::ATTR_PERSISTENT         => true,
+                PDO::ATTR_PERSISTENT         => false,
             ];
+
             $this->pdo = new PDO($dsn, $this->user, $this->pass, $options);
+
         } catch (PDOException $e) {
             error_log("Database Connection Error: " . $e->getMessage());
-            throw new Exception("Could not connect to database. Please check your configuration.");
+            throw new Exception("Could not connect to database. Check Railway ENV settings.");
         }
     }
 
-    /**
-     * Get singleton instance of database connection
-     */
     public static function getInstance()
     {
         if (self::$instance === null) {
@@ -44,43 +52,20 @@ class DatabaseConnection
         return self::$instance;
     }
 
-    /**
-     * Get PDO connection
-     */
     public function getConnection()
     {
         return $this->pdo;
     }
 
-    /**
-     * Prevent cloning of the instance
-     */
     private function __clone() {}
-
-    /**
-     * Prevent unserializing of the instance
-     */
-    public function __wakeup()
-    {
-        throw new Exception("Cannot unserialize singleton");
-    }
+    public function __wakeup() { throw new Exception("Cannot unserialize singleton"); }
 }
 
-/**
- * Helper function to get database connection
- * @return PDO
- */
 function getDB()
 {
     return DatabaseConnection::getInstance()->getConnection();
 }
 
-/**
- * Helper function to execute a query
- * @param string $sql
- * @param array $params
- * @return PDOStatement
- */
 function query($sql, $params = [])
 {
     $pdo = getDB();
@@ -89,108 +74,60 @@ function query($sql, $params = [])
     return $stmt;
 }
 
-/**
- * Helper function to fetch all rows
- * @param string $sql
- * @param array $params
- * @return array
- */
 function fetchAll($sql, $params = [])
 {
-    $stmt = query($sql, $params);
-    return $stmt->fetchAll();
+    return query($sql, $params)->fetchAll();
 }
 
-/**
- * Helper function to fetch single row
- * @param string $sql
- * @param array $params
- * @return array|false
- */
 function fetchOne($sql, $params = [])
 {
-    $stmt = query($sql, $params);
-    return $stmt->fetch();
+    return query($sql, $params)->fetch();
 }
 
-/**
- * Helper function to insert data
- * @param string $table
- * @param array $data
- * @return string Last insert ID
- */
 function insert($table, $data)
 {
     $keys = array_keys($data);
     $fields = implode(', ', $keys);
     $placeholders = implode(', ', array_fill(0, count($keys), '?'));
-    
+
     $sql = "INSERT INTO {$table} ({$fields}) VALUES ({$placeholders})";
-    $stmt = query($sql, array_values($data));
-    
+    query($sql, array_values($data));
+
     return getDB()->lastInsertId();
 }
 
-/**
- * Helper function to update data
- * @param string $table
- * @param array $data
- * @param string $where
- * @param array $whereParams
- * @return int Number of affected rows
- */
 function update($table, $data, $where, $whereParams = [])
 {
-    $setParts = [];
-    foreach (array_keys($data) as $key) {
-        $setParts[] = "{$key} = ?";
-    }
-    $setClause = implode(', ', $setParts);
-    
-    $sql = "UPDATE {$table} SET {$setClause} WHERE {$where}";
+    $set = implode(', ', array_map(fn($k) => "$k = ?", array_keys($data)));
+
+    $sql = "UPDATE {$table} SET {$set} WHERE {$where}";
     $params = array_merge(array_values($data), $whereParams);
-    $stmt = query($sql, $params);
-    
-    return $stmt->rowCount();
+
+    return query($sql, $params)->rowCount();
 }
 
-/**
- * Helper function to delete data
- * @param string $table
- * @param string $where
- * @param array $whereParams
- * @return int Number of affected rows
- */
 function delete($table, $where, $whereParams = [])
 {
     $sql = "DELETE FROM {$table} WHERE {$where}";
-    $stmt = query($sql, $whereParams);
-    return $stmt->rowCount();
+    return query($sql, $whereParams)->rowCount();
 }
 
-/**
- * Log an activity to the activity_logs table
- * @param string $action
- * @param string $description
- * @param int $admin_id (optional, defaults to current user)
- * @return string|false Last insert ID or false if failed
- */
 function log_activity($action, $description = '', $admin_id = null)
 {
     try {
         if ($admin_id === null && isset($_SESSION['id'])) {
             $admin_id = $_SESSION['id'];
         }
-        
+
         $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
-        
+
         $data = [
             'action' => $action,
             'description' => $description,
             'admin_id' => $admin_id,
             'ip_address' => $ip_address
         ];
-        
+
         return insert('activity_logs', $data);
     } catch (Exception $e) {
         error_log("Failed to log activity: " . $e->getMessage());

@@ -340,7 +340,7 @@ body.dark-mode .logo-text {
 
 .sidebar .nav-link.active,
 .sidebar .nav-link:hover {
-  border-left: 4px solid #00bfa6;
+  border-left: 4px solid #00f5d4;
   background-color: #c8ecef;
   color: #0f5b69;
 }
