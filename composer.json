@@ -1,33 +1,15 @@
 {
   "name": "project/php",
-  "description": "PHP App dengan MySQL Support untuk Railway",
-  "type": "project",
+  "description": "PHP App",
   "require": {
     "php": "^8.0",
     "ext-pdo": "*",
-    "ext-pdo_mysql": "*",
-    "ext-mysqli": "*",
-    "ext-mbstring": "*",
-    "ext-json": "*",
-    "ext-openssl": "*"
-  },
-  "require-dev": {
-    "ext-gd": "*",
-    "ext-zip": "*",
-    "ext-fileinfo": "*"
+    "ext-pdo_mysql": "*"
   },
   "scripts": {
     "post-install-cmd": [
-      "echo 'Checking PHP extensions...'",
-      "php -m | grep -i mysql || echo 'MySQL extensions missing'"
+      "echo 'Checking PHP MySQL extensions...'",
+      "php -r \"if(!extension_loaded('pdo_mysql')) { echo 'ERROR: pdo_mysql not loaded!'; exit(1); } else { echo 'OK: pdo_mysql loaded'; }\""
     ]
-  },
-  "config": {
-    "platform": {
-      "php": "8.2"
-    },
-    "optimize-autoloader": true,
-    "preferred-install": "dist",
-    "sort-packages": true
   }
 }
