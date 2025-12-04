@@ -2,7 +2,7 @@
 
 function get_db_pdo()
 {
-    $host = getenv('MYSQLHOST') ?: '127.0.0.1';
+    $host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
     $db   = getenv('MYSQLDATABASE') ?: 'railway';
     $user = getenv('MYSQLUSER') ?: 'root';
     $pass = getenv('MYSQLPASSWORD') ?: '';
