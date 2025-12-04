@@ -24,8 +24,7 @@ class DatabaseConnection
         $this->user = getenv('MYSQLUSER') ?: 'root';
         $this->pass = getenv('MYSQLPASSWORD') ?: '';
         $this->port = getenv('MYSQLPORT') ?: 3306;
-
-
+      
         try {
             // DSN khusus Railway (harus pakai port)
             $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->db};charset={$this->charset}";
@@ -35,6 +34,8 @@ class DatabaseConnection
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
                 PDO::ATTR_PERSISTENT         => false,
+                PDO::MYSQL_ATTR_SSL_CA       => '/etc/ssl/cert.pem'
+
             ];
 
             $this->pdo = new PDO($dsn, $this->user, $this->pass, $options);
