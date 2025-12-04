@@ -1,6 +1,7 @@
 <?php
 session_start();
-require_once __DIR__ . '/connection.php';
+
+// DEBUG: Tampilkan environment variables
 echo "<pre>";
 var_dump([
     'host' => getenv('MYSQLHOST'),
@@ -10,16 +11,24 @@ var_dump([
     'port' => getenv('MYSQLPORT'),
     'mysql_database_url' => getenv('MYSQL_DATABASE_URL'),
 ]);
-
 echo "</pre>";
 
+require_once __DIR__ . '/connection.php';
+
+// Test koneksi sederhana
 try {
     $pdo = getDB();
-    echo "<div style='background: green; color: white; padding: 10px; margin: 10px;'>Database connected successfully!</div>";
+    echo "<div style='background: green; color: white; padding: 10px; margin: 10px;'>✓ Database connected successfully!</div>";
+    
+    // Test query
+    $stmt = $pdo->query("SELECT 1 as test");
+    $result = $stmt->fetch();
+    echo "<div style='background: blue; color: white; padding: 10px; margin: 10px;'>✓ Query test successful: " . $result['test'] . "</div>";
+    
 } catch (Exception $e) {
-    echo "<div style='background: red; color: white; padding: 10px; margin: 10px;'>DB ERROR: " . htmlspecialchars($e->getMessage()) . "</div>";
-    // Jangan exit biar form tetap muncul
+    echo "<div style='background: red; color: white; padding: 10px; margin: 10px;'>✗ DB ERROR: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['user'] ?? '';
     $password = $_POST['pass'] ?? '';
