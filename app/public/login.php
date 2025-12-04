@@ -1,33 +1,25 @@
 <?php
 session_start();
-
-try {
-    $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->db};charset={$this->charset}";
-    error_log("Attempting to connect with DSN: " . $dsn);
-    error_log("User: " . $this->user);
-    error_log("ENV CHECK: HOST=" . getenv('MYSQLHOST'));
-    error_log("ENV CHECK: DB=" . getenv('MYSQLDATABASE'));
-    error_log("ENV CHECK: USER=" . getenv('MYSQLUSER'));
-    error_log("ENV CHECK: PASS=" . substr(getenv('MYSQLPASSWORD'), 0, 4) . "****");
-    error_log("ENV CHECK: PORT=" . getenv('MYSQLPORT'));
-    // ... sisa kode
-} catch (PDOException $e) {
-    error_log("Database Connection Error Details: " . $e->getMessage());
-    error_log("Host: {$this->host}, Port: {$this->port}, DB: {$this->db}, User: {$this->user}");
-    throw new Exception("Could not connect to database. Check Railway ENV settings.");
-}
-
-
 require_once __DIR__ . '/connection.php';
+echo "<pre>";
+var_dump([
+    'host' => getenv('MYSQLHOST'),
+    'db' => getenv('MYSQLDATABASE'),
+    'user' => getenv('MYSQLUSER'),
+    'pass' => getenv('MYSQLPASSWORD'),
+    'port' => getenv('MYSQLPORT'),
+    'mysql_database_url' => getenv('MYSQL_DATABASE_URL'),
+]);
 
+echo "</pre>";
 
 try {
-    $test = getDB();
+    $pdo = getDB();
+    echo "<div style='background: green; color: white; padding: 10px; margin: 10px;'>Database connected successfully!</div>";
 } catch (Exception $e) {
-    echo "<pre>DB ERROR: " . $e->getMessage() . "</pre>";
-    exit;
+    echo "<div style='background: red; color: white; padding: 10px; margin: 10px;'>DB ERROR: " . htmlspecialchars($e->getMessage()) . "</div>";
+    // Jangan exit biar form tetap muncul
 }
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['user'] ?? '';
     $password = $_POST['pass'] ?? '';
@@ -69,18 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("Login error: " . $e->getMessage());
     }
 }
-
-    echo "<pre>";
-var_dump([
-    'host' => getenv('MYSQLHOST'),
-    'db' => getenv('MYSQLDATABASE'),
-    'user' => getenv('MYSQLUSER'),
-    'pass' => getenv('MYSQLPASSWORD'),
-    'port' => getenv('MYSQLPORT'),
-]);
-
-echo "</pre>";
-
 ?>
 <!DOCTYPE html>
 <html lang="id">
