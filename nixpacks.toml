@@ -1,0 +1,36 @@
+# nixpacks.toml
+[phases.setup]
+aptPkgs = [
+    "php8.2",
+    "php8.2-common",
+    "php8.2-mysql",
+    "php8.2-pdo",
+    "php8.2-mysqli",
+    "php8.2-mbstring",
+    "php8.2-json",
+    "php8.2-openssl",
+    "php8.2-curl",
+    "php8.2-zip",
+    "php8.2-gd",
+    "php8.2-xml",
+    "php8.2-bcmath",
+    "libpng-dev",
+    "libjpeg-dev",
+    "libwebp-dev"
+]
+
+[phases.install]
+cmds = [
+    "docker-php-ext-install pdo pdo_mysql mysqli",
+    "docker-php-ext-enable pdo_mysql mysqli opcache",
+    "echo 'PHP Extensions installed successfully'"
+]
+
+[phases.build]
+cmds = [
+    "composer install --no-dev --optimize-autoloader",
+    "chmod -R 755 storage bootstrap/cache"
+]
+
+[start]
+cmd = "php -S 0.0.0.0:$PORT -t public"
