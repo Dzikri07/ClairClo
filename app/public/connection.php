@@ -23,11 +23,12 @@ class DatabaseConnection
     private function __construct()
     {
         // Ambil variabel dari Railway
-        $this->host = getenv('MYSQL_HOST') ?: 'mysql.railway.internal';
-        $this->db   = getenv('MYSQL_DATABASE') ?: '';
-        $this->user = getenv('MYSQL_USER') ?: 'root';
-        $this->pass = getenv('MYSQL_PASSWORD') ?: '';
-        $this->port = getenv('MYSQL_PORT') ?: 3306;
+     $this->host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
+    $this->db   = getenv('MYSQLDATABASE') ?: '';
+    $this->user = getenv('MYSQLUSER') ?: 'root';
+    $this->pass = getenv('MYSQLPASSWORD') ?: '';
+    $this->port = getenv('MYSQLPORT') ?: 3306;
+
         try {
             // DSN khusus Railway (harus pakai port)
             $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->db};charset={$this->charset}";
