@@ -19,7 +19,7 @@ class DatabaseConnection
     private function __construct()
     {
         // Ambil variabel dari Railway
-        $this->host = getenv('MYSQLHOST') ?: '127.0.0.1';
+        $this->host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
         $this->db   = getenv('MYSQLDATABASE') ?: 'clariocloud';
         $this->user = getenv('MYSQLUSER') ?: 'root';
         $this->pass = getenv('MYSQLPASSWORD') ?: '';
