@@ -1,33 +1,22 @@
 <?php
 session_start();
 
-// DEBUG: Tampilkan environment variables
-echo "<pre>";
-var_dump([
-    'host' => getenv('MYSQLHOST'),
-    'db' => getenv('MYSQLDATABASE'),
-    'user' => getenv('MYSQLUSER'),
-    'pass' => getenv('MYSQLPASSWORD'),
-    'port' => getenv('MYSQLPORT'),
-    'mysql_database_url' => getenv('MYSQL_DATABASE_URL'),
-]);
-echo "</pre>";
+// Minimal debug
+error_log("Login page accessed: " . date('Y-m-d H:i:s'));
 
 require_once __DIR__ . '/connection.php';
 
-// Test koneksi sederhana
+// Test connection secara silent
 try {
     $pdo = getDB();
-    echo "<div style='background: green; color: white; padding: 10px; margin: 10px;'>✓ Database connected successfully!</div>";
-    
-    // Test query
-    $stmt = $pdo->query("SELECT 1 as test");
-    $result = $stmt->fetch();
-    echo "<div style='background: blue; color: white; padding: 10px; margin: 10px;'>✓ Query test successful: " . $result['test'] . "</div>";
-    
+    $pdo->query("SELECT 1"); // Just test
+    error_log("✓ Database connected for login");
 } catch (Exception $e) {
-    echo "<div style='background: red; color: white; padding: 10px; margin: 10px;'>✗ DB ERROR: " . htmlspecialchars($e->getMessage()) . "</div>";
+    error_log("✗ Database error in login: " . $e->getMessage());
+    // Don't show error to user in production
 }
+
+// REST OF YOUR LOGIN CODE...
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['user'] ?? '';
