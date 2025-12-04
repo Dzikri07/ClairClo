@@ -24,10 +24,10 @@ class DatabaseConnection
     {
         // Ambil variabel dari Railway
      $this->host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
-    $this->db   = getenv('MYSQLDATABASE') ?: '';
-    $this->user = getenv('MYSQLUSER') ?: 'root';
-    $this->pass = getenv('MYSQLPASSWORD') ?: '';
-    $this->port = getenv('MYSQLPORT') ?: 3306;
+     $this->db   = getenv('MYSQLDATABASE') ?: 'railway';
+     $this->user = getenv('MYSQLUSER') ?: 'root';
+     $this->pass = getenv('MYSQLPASSWORD') ?: 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
+     $this->port = getenv('MYSQLPORT') ?: 3306;
 
         try {
             // DSN khusus Railway (harus pakai port)
