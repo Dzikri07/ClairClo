@@ -1,7 +1,9 @@
 <?php
 session_start();
 require_once __DIR__ . '/connection.php';
-
+    var_dump(getenv('MYSQLHOST'));
+    var_dump(getDB());
+exit;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['user'] ?? '';
     $password = $_POST['pass'] ?? '';
