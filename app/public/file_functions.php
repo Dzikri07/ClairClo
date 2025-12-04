@@ -189,8 +189,8 @@ function handle_upload($field = 'upload_file')
 
     $upload_dir = get_upload_dir();
     $original = basename($file['name']);
-    // sanitize filename
     $original = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $original);
+
     $target = $upload_dir . '/' . $original;
     $i = 1;
     while (file_exists($target)) {
@@ -204,26 +204,5 @@ function handle_upload($field = 'upload_file')
         return ['success' => false, 'message' => 'Failed to move uploaded file.'];
     }
 
-    $result = ['success' => true, 'file' => basename($target)];
-
-    // optional: store metadata in database if config available
-    $configPath = __DIR__ . '/config.php';
-    if (file_exists($configPath)) {
-        try {
-            require_once $configPath;
-            if (function_exists('get_db_pdo')) {
-                $pdo = get_db_pdo();
-                if ($pdo) {
-                    $stmt = $pdo->prepare('INSERT INTO files (filename, original_name, mime, size) VALUES (?, ?, ?, ?)');
-                    $stmt->execute([basename($target), $original, mime_content_type($target), filesize($target)]);
-                    $result['db_id'] = $pdo->lastInsertId();
-                }
-            }
-        } catch (Exception $e) {
-            // ignore DB errors for now but return file uploaded successfully
-            $result['db_error'] = $e->getMessage();
-        }
-    }
-
-    return $result;
+    return ['success' => true, 'file' => basename($target)];
 }
