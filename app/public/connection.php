@@ -27,7 +27,7 @@ class DatabaseConnection
      $this->db   = getenv('MYSQLDATABASE') ?: 'railway';
      $this->user = getenv('MYSQLUSER') ?: 'root';
      $this->pass = getenv('MYSQLPASSWORD') ?: 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
-     $this->port = getenv('MYSQLPORT') ?: 3306;
+     $this->port = getenv('MYSQLPORT') ?: 58371;
 
         try {
             // DSN khusus Railway (harus pakai port)
