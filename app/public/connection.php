@@ -1,5 +1,5 @@
 <?php
-// connection.php - CORRECT PORT VERSION
+// connection.php - FINAL FIX
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -10,110 +10,63 @@ function getDB() {
         return $pdo;
     }
     
-    // DEBUG
-    echo "<!-- DB Connection Initialized -->";
+    // AMBIL DARI ENV - sudah akan benar setelah di-update
+    $host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
+    $port = getenv('MYSQLPORT') ?: 3306; // ← SEKARANG 3306, bukan 58371!
+    $db   = getenv('MYSQLDATABASE') ?: 'railway';
+    $user = getenv('MYSQLUSER') ?: 'root';
+    $pass = getenv('MYSQLPASSWORD') ?: 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
     
-    // OPTIMIZED ORDER BASED ON TEST RESULTS:
-    $connection_options = [];
+    // LOG untuk debugging (aman karena di error_log)
+    error_log("Connecting to: mysql://{$user}:***@{$host}:{$port}/{$db}");
     
-    // 1. MYSQL_URL dengan port 3306 (INTERNAL - terbukti bekerja)
-    if ($url = getenv('MYSQL_URL')) {
-        $parsed = parse_url($url);
-        if ($parsed && isset($parsed['host'])) {
-            $connection_options[] = [
-                'name' => 'MYSQL_URL',
-                'host' => $parsed['host'],
-                'port' => $parsed['port'] ?? 3306, // ← 3306, bukan 58371!
-                'db'   => isset($parsed['path']) ? ltrim($parsed['path'], '/') : 'railway',
-                'user' => $parsed['user'] ?? 'root',
-                'pass' => $parsed['pass'] ?? 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
-            ];
-        }
-    }
-    
-    // 2. MYSQL_PUBLIC_URL dengan port 50371 (EXTERNAL - terbukti bekerja)
-    if ($url = getenv('MYSQL_PUBLIC_URL')) {
-        $parsed = parse_url($url);
-        if ($parsed && isset($parsed['host'])) {
-            $connection_options[] = [
-                'name' => 'MYSQL_PUBLIC_URL',
-                'host' => $parsed['host'],
-                'port' => $parsed['port'] ?? 50371, // ← 50371, bukan 58371!
-                'db'   => isset($parsed['path']) ? ltrim($parsed['path'], '/') : 'railway',
-                'user' => $parsed['user'] ?? 'root',
-                'pass' => $parsed['pass'] ?? 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
-            ];
-        }
-    }
-    
-    // 3. Hardcode berdasarkan test yang sukses
-    $connection_options[] = [
-        'name' => 'Hardcode Internal',
-        'host' => 'mysql.railway.internal',
-        'port' => 3306, // ← 3306 BERHASIL!
-        'db'   => 'railway',
-        'user' => 'root',
-        'pass' => 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
-    ];
-    
-    $connection_options[] = [
-        'name' => 'Hardcode External',
-        'host' => 'ballast.proxy.rlwy.net',
-        'port' => 50371, // ← 50371 BERHASIL!
-        'db'   => 'railway',
-        'user' => 'root',
-        'pass' => 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
-    ];
-    
-    // 4. Individual ENV vars (fallback)
-    $connection_options[] = [
-        'name' => 'ENV Variables',
-        'host' => getenv('MYSQLHOST') ?: 'mysql.railway.internal',
-        'port' => (int) (getenv('MYSQLPORT') ?: 3306), // ← Default 3306
-        'db'   => getenv('MYSQLDATABASE') ?: 'railway',
-        'user' => getenv('MYSQLUSER') ?: 'root',
-        'pass' => getenv('MYSQLPASSWORD') ?: 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
-    ];
-    
-    $last_error = null;
-    
-    foreach ($connection_options as $option) {
-        echo "<!-- Trying {$option['name']}: {$option['host']}:{$option['port']} -->";
+    try {
+        // Koneksi sederhana - sudah pasti bekerja
+        $dsn = "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4";
+        $pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+        
+        error_log("✓ Database connected successfully!");
+        return $pdo;
+        
+    } catch (PDOException $e) {
+        // Fallback ke hardcode jika ENV masih salah
+        error_log("ENV connection failed: " . $e->getMessage());
+        error_log("Trying hardcoded connection...");
         
         try {
-            $dsn = "mysql:host={$option['host']};port={$option['port']};dbname={$option['db']};charset=utf8mb4";
+            // Hardcode yang sudah terbukti bekerja
+            $host = 'mysql.railway.internal';
+            $port = 3306;
+            $db   = 'railway';
+            $user = 'root';
+            $pass = 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
             
-            $pdo = new PDO($dsn, $option['user'], $option['pass'], [
+            $dsn = "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4";
+            $pdo = new PDO($dsn, $user, $pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_TIMEOUT => 3,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
             
-            // Test connection
-            $stmt = $pdo->query("SELECT 1 as connected, DATABASE() as db");
-            $result = $stmt->fetch();
-            
-            echo "<!-- ✓ Connected via {$option['name']} to {$result['db']} -->";
-            error_log("Database connected via {$option['name']}: {$option['host']}:{$option['port']}");
-            
+            error_log("✓ Hardcoded connection successful!");
             return $pdo;
             
-        } catch (PDOException $e) {
-            $last_error = $e;
-            echo "<!-- ✗ {$option['name']} failed: " . $e->getMessage() . " -->";
-            continue;
+        } catch (PDOException $e2) {
+            $error = "Database connection failed. ";
+            $error .= "Tried ENV and hardcoded. ";
+            $error .= "Last error: " . $e2->getMessage();
+            
+            error_log($error);
+            throw new Exception($error);
         }
     }
-    
-    throw new Exception(
-        "Database connection failed. " .
-        "Tried multiple hosts/ports. " .
-        "Last error: " . ($last_error ? $last_error->getMessage() : "Unknown")
-    );
 }
 
-// Helper functions tetap sama...
+// Helper functions...
 function query($sql, $params = []) {
     $pdo = getDB();
     $stmt = $pdo->prepare($sql);
