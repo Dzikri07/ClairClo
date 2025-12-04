@@ -53,12 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     echo "<pre>";
 var_dump([
-    'MYSQLHOST' => getenv('MYSQLHOST'),
-    'MYSQLPORT' => getenv('MYSQLPORT'),
-    'MYSQLUSER' => getenv('MYSQLUSER'),
-    'MYSQLDATABASE' => getenv('MYSQLDATABASE'),
-    'MYSQLPASSWORD' => getenv('MYSQLPASSWORD'),
+    'host' => getenv('MYSQL_HOST'),
+    'db' => getenv('MYSQL_DATABASE'),
+    'user' => getenv('MYSQL_USER'),
+    'pass' => getenv('MYSQL_PASSWORD'),
+    'port' => getenv('MYSQL_PORT'),
 ]);
+
 echo "</pre>";
 
 ?>
