@@ -1,5 +1,33 @@
 {
   "name": "project/php",
-  "description": "PHP App",
-  "require": {}
+  "description": "PHP App dengan MySQL Support untuk Railway",
+  "type": "project",
+  "require": {
+    "php": "^8.0",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-mysqli": "*",
+    "ext-mbstring": "*",
+    "ext-json": "*",
+    "ext-openssl": "*"
+  },
+  "require-dev": {
+    "ext-gd": "*",
+    "ext-zip": "*",
+    "ext-fileinfo": "*"
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "echo 'Checking PHP extensions...'",
+      "php -m | grep -i mysql || echo 'MySQL extensions missing'"
+    ]
+  },
+  "config": {
+    "platform": {
+      "php": "8.2"
+    },
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  }
 }
