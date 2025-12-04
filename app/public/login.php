@@ -50,6 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("Login error: " . $e->getMessage());
     }
 }
+
+    echo "<pre>";
+var_dump([
+    'MYSQLHOST' => getenv('MYSQLHOST'),
+    'MYSQLPORT' => getenv('MYSQLPORT'),
+    'MYSQLUSER' => getenv('MYSQLUSER'),
+    'MYSQLDATABASE' => getenv('MYSQLDATABASE'),
+    'MYSQLPASSWORD' => getenv('MYSQLPASSWORD'),
+]);
+echo "</pre>";
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
