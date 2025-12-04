@@ -1,89 +1,157 @@
 <?php
-// connection.php - FINAL SIMPLE VERSION
+// connection.php - FINAL FIXED VERSION
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 function getDB() {
     static $pdo = null;
     
-    if ($pdo) return $pdo;
+    if ($pdo !== null) {
+        return $pdo;
+    }
     
-    // TRY MULTIPLE HOSTS
-    $hosts = [
-        'mysql.railway.internal',  // Railway internal
-        '127.0.0.1',               // Localhost
-        'localhost'                // Localhost alias
+    // DEBUG: Tampilkan semua options
+    echo "<!-- DB Connection Debug -->";
+    
+    // PILIHAN URUTAN (prioritas):
+    $connection_options = [];
+    
+    // 1. Coba MYSQL_URL dulu (internal - lebih cepat)
+    if ($url = getenv('MYSQL_URL')) {
+        $parsed = parse_url($url);
+        if ($parsed && isset($parsed['host'])) {
+            $connection_options[] = [
+                'name' => 'MYSQL_URL',
+                'host' => $parsed['host'],
+                'port' => $parsed['port'] ?? 58371,
+                'db'   => isset($parsed['path']) ? ltrim($parsed['path'], '/') : 'railway',
+                'user' => $parsed['user'] ?? 'root',
+                'pass' => $parsed['pass'] ?? 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
+            ];
+        }
+    }
+    
+    // 2. Coba individual variables
+    $connection_options[] = [
+        'name' => 'Individual ENV',
+        'host' => getenv('MYSQLHOST') ?: 'mysql.railway.internal',
+        'port' => getenv('MYSQLPORT') ?: 58371,
+        'db'   => getenv('MYSQLDATABASE') ?: 'railway',
+        'user' => getenv('MYSQLUSER') ?: 'root',
+        'pass' => getenv('MYSQLPASSWORD') ?: 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
     ];
     
-    $port = 58371;
-    $db   = 'railway';
-    $user = 'root';
-    $pass = 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
+    // 3. Coba MYSQL_PUBLIC_URL (external)
+    if ($url = getenv('MYSQL_PUBLIC_URL')) {
+        $parsed = parse_url($url);
+        if ($parsed && isset($parsed['host'])) {
+            $connection_options[] = [
+                'name' => 'MYSQL_PUBLIC_URL',
+                'host' => $parsed['host'],
+                'port' => $parsed['port'] ?? 58371,
+                'db'   => isset($parsed['path']) ? ltrim($parsed['path'], '/') : 'railway',
+                'user' => $parsed['user'] ?? 'root',
+                'pass' => $parsed['pass'] ?? 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
+            ];
+        }
+    }
     
-    $lastError = null;
+    // 4. Hardcode fallback (pakai yang dari gambar)
+    $connection_options[] = [
+        'name' => 'Hardcode 1 (Internal)',
+        'host' => 'mysql.railway.internal',
+        'port' => 58371,
+        'db'   => 'railway',
+        'user' => 'root',
+        'pass' => 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
+    ];
     
-    foreach ($hosts as $host) {
+    $connection_options[] = [
+        'name' => 'Hardcode 2 (External)',
+        'host' => 'ballast.proxy.rlwy.net',
+        'port' => 58371,
+        'db'   => 'railway',
+        'user' => 'root',
+        'pass' => 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl'
+    ];
+    
+    $last_error = null;
+    
+    // COBA SEMUA OPTION
+    foreach ($connection_options as $option) {
+        echo "<!-- Trying: {$option['name']} -->";
+        echo "<!-- Host: {$option['host']}:{$option['port']} -->";
+        
         try {
-            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
-            $pdo = new PDO($dsn, $user, $pass, [
+            $dsn = "mysql:host={$option['host']};port={$option['port']};dbname={$option['db']};charset=utf8mb4";
+            
+            $pdo = new PDO($dsn, $option['user'], $option['pass'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 3,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
             
-            error_log("✓ Connected to $host:$port");
+            // Test connection
+            $pdo->query("SELECT 1");
+            
+            echo "<!-- ✓ Connected via {$option['name']} -->";
+            error_log("Database connected via {$option['name']}: {$option['host']}:{$option['port']}");
+            
             return $pdo;
             
         } catch (PDOException $e) {
-            $lastError = $e;
-            error_log("✗ Failed to connect to $host:$port - " . $e->getMessage());
-            continue; // Try next host
+            $last_error = $e;
+            echo "<!-- ✗ {$option['name']} failed: " . $e->getMessage() . " -->";
+            error_log("Connection failed ({$option['name']}): " . $e->getMessage());
+            continue;
         }
     }
     
-    // If all hosts failed
-    throw new Exception("Cannot connect to MySQL: " . ($lastError ? $lastError->getMessage() : "Unknown error"));
+    // Jika semua gagal
+    throw new Exception(
+        "All database connection attempts failed. " .
+        "Last error: " . ($last_error ? $last_error->getMessage() : "Unknown") . ". " .
+        "Please check Railway MySQL service and port configuration (should be 58371)."
+    );
 }
 
-// Helper functions sederhana
-function db_query($sql, $params = []) {
+// Helper functions...
+function query($sql, $params = []) {
     $pdo = getDB();
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt;
 }
 
-function db_fetch_all($sql, $params = []) {
-    return db_query($sql, $params)->fetchAll();
+function fetchAll($sql, $params = []) {
+    return query($sql, $params)->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function db_fetch_one($sql, $params = []) {
-    return db_query($sql, $params)->fetch();
+function fetchOne($sql, $params = []) {
+    return query($sql, $params)->fetch(PDO::FETCH_ASSOC);
 }
 
-function db_insert($table, $data) {
+function insert($table, $data) {
     $keys = array_keys($data);
     $fields = implode(', ', $keys);
     $placeholders = implode(', ', array_fill(0, count($keys), '?'));
-    $sql = "INSERT INTO $table ($fields) VALUES ($placeholders)";
-    db_query($sql, array_values($data));
+    
+    $sql = "INSERT INTO {$table} ({$fields}) VALUES ({$placeholders})";
+    query($sql, array_values($data));
+    
     return getDB()->lastInsertId();
 }
 
-function db_update($table, $data, $where, $whereParams = []) {
+function update($table, $data, $where, $whereParams = []) {
     $set = implode(', ', array_map(fn($k) => "$k = ?", array_keys($data)));
-    $sql = "UPDATE $table SET $set WHERE $where";
+    $sql = "UPDATE {$table} SET {$set} WHERE {$where}";
     $params = array_merge(array_values($data), $whereParams);
-    return db_query($sql, $params)->rowCount();
+    
+    return query($sql, $params)->rowCount();
 }
 
-function db_delete($table, $where, $whereParams = []) {
-    $sql = "DELETE FROM $table WHERE $where";
-    return db_query($sql, $whereParams)->rowCount();
+function delete($table, $where, $whereParams = []) {
+    $sql = "DELETE FROM {$table} WHERE {$where}";
+    return query($sql, $whereParams)->rowCount();
 }
-
-// Alias untuk compatibility dengan kode lama
-function query($sql, $params = []) { return db_query($sql, $params); }
-function fetchAll($sql, $params = []) { return db_fetch_all($sql, $params); }
-function fetchOne($sql, $params = []) { return db_fetch_one($sql, $params); }
-function insert($table, $data) { return db_insert($table, $data); }
-function update($table, $data, $where, $whereParams = []) { return db_update($table, $data, $where, $whereParams); }
-function delete($table, $where, $whereParams = []) { return db_delete($table, $where, $whereParams); }
-?>
