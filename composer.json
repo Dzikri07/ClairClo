@@ -1,15 +1,9 @@
 {
-  "name": "project/php",
-  "description": "PHP App",
+  "name": "clairoclo/php-app",
+  "type": "project",
   "require": {
-    "php": "^8.0",
+    "php": "^8.2",
     "ext-pdo": "*",
     "ext-pdo_mysql": "*"
-  },
-  "scripts": {
-    "post-install-cmd": [
-      "echo 'Checking PHP MySQL extensions...'",
-      "php -r \"if(!extension_loaded('pdo_mysql')) { echo 'ERROR: pdo_mysql not loaded!'; exit(1); } else { echo 'OK: pdo_mysql loaded'; }\""
-    ]
   }
 }
