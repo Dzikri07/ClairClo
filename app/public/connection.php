@@ -1,68 +1,45 @@
 <?php
-/**
- * connection.php - SIMPLE Database connection for Railway
- * VERSION SANGAT SEDERHANA tanpa constant yang bermasalah
- */
-
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// FUNGSI SANGAT SEDERHANA - langsung konek tanpa class kompleks
+// connection.php - FINAL SIMPLE VERSION
 function getDB() {
     static $pdo = null;
     
-    if ($pdo !== null) {
-        return $pdo;
-    }
+    if ($pdo) return $pdo;
     
-    // Config langsung dari ENV
-    $host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
-    $port = getenv('MYSQLPORT') ?: '58371';
-    $db   = getenv('MYSQLDATABASE') ?: 'railway';
-    $user = getenv('MYSQLUSER') ?: 'root';
-    $pass = getenv('MYSQLPASSWORD') ?: 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
+    // TRY MULTIPLE HOSTS
+    $hosts = [
+        'mysql.railway.internal',  // Railway internal
+        '127.0.0.1',               // Localhost
+        'localhost'                // Localhost alias
+    ];
     
-    // Debug
-    error_log("=== DB CONFIG ===");
-    error_log("Host: $host");
-    error_log("Port: $port");
-    error_log("DB: $db");
-    error_log("User: $user");
+    $port = 58371;
+    $db   = 'railway';
+    $user = 'root';
+    $pass = 'lEgTlAziFBDuKzVkbWRYjJihcTzkchVl';
     
-    try {
-        // DSN sederhana
-        $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
-        
-        // Coba koneksi basic
-        $pdo = new PDO($dsn, $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
-        
-        error_log("✓ Database connected!");
-        return $pdo;
-        
-    } catch (PDOException $e) {
-        error_log("✗ Connection failed: " . $e->getMessage());
-        
-        // Coba tanpa database dulu
+    $lastError = null;
+    
+    foreach ($hosts as $host) {
         try {
-            error_log("Trying without database...");
-            $dsn = "mysql:host=$host;port=$port;charset=utf8mb4";
+            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
             $pdo = new PDO($dsn, $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
             ]);
             
-            error_log("✓ Connected without database");
+            error_log("✓ Connected to $host:$port");
             return $pdo;
             
-        } catch (PDOException $e2) {
-            error_log("✗ Fallback also failed: " . $e2->getMessage());
-            throw new Exception("Database connection failed. Check Railway MySQL service.");
+        } catch (PDOException $e) {
+            $lastError = $e;
+            error_log("✗ Failed to connect to $host:$port - " . $e->getMessage());
+            continue; // Try next host
         }
     }
+    
+    // If all hosts failed
+    throw new Exception("Cannot connect to MySQL: " . ($lastError ? $lastError->getMessage() : "Unknown error"));
 }
 
 // Helper functions sederhana
@@ -109,3 +86,4 @@ function fetchOne($sql, $params = []) { return db_fetch_one($sql, $params); }
 function insert($table, $data) { return db_insert($table, $data); }
 function update($table, $data, $where, $whereParams = []) { return db_update($table, $data, $where, $whereParams); }
 function delete($table, $where, $whereParams = []) { return db_delete($table, $where, $whereParams); }
+?>
