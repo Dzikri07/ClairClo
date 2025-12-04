@@ -1,10 +1,23 @@
 <?php
 session_start();
-error_log("ENV CHECK: HOST=" . getenv('MYSQLHOST'));
-error_log("ENV CHECK: DB=" . getenv('MYSQLDATABASE'));
-error_log("ENV CHECK: USER=" . getenv('MYSQLUSER'));
-error_log("ENV CHECK: PASS=" . substr(getenv('MYSQLPASSWORD'), 0, 4) . "****");
-error_log("ENV CHECK: PORT=" . getenv('MYSQLPORT'));
+
+try {
+    $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->db};charset={$this->charset}";
+    error_log("Attempting to connect with DSN: " . $dsn);
+    error_log("User: " . $this->user);
+    error_log("ENV CHECK: HOST=" . getenv('MYSQLHOST'));
+    error_log("ENV CHECK: DB=" . getenv('MYSQLDATABASE'));
+    error_log("ENV CHECK: USER=" . getenv('MYSQLUSER'));
+    error_log("ENV CHECK: PASS=" . substr(getenv('MYSQLPASSWORD'), 0, 4) . "****");
+    error_log("ENV CHECK: PORT=" . getenv('MYSQLPORT'));
+    // ... sisa kode
+} catch (PDOException $e) {
+    error_log("Database Connection Error Details: " . $e->getMessage());
+    error_log("Host: {$this->host}, Port: {$this->port}, DB: {$this->db}, User: {$this->user}");
+    throw new Exception("Could not connect to database. Check Railway ENV settings.");
+}
+
+
 require_once __DIR__ . '/connection.php';
 
 
