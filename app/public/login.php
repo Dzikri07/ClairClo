@@ -2,6 +2,13 @@
 session_start();
 require_once __DIR__ . '/connection.php';
 
+try {
+    $test = getDB();
+} catch (Exception $e) {
+    echo "<pre>DB ERROR: " . $e->getMessage() . "</pre>";
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['user'] ?? '';
     $password = $_POST['pass'] ?? '';
