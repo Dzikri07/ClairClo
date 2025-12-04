@@ -1,6 +1,11 @@
 <?php
 session_start();
 require_once __DIR__ . '/connection.php';
+error_log("ENV CHECK: HOST=" . getenv('MYSQLHOST'));
+error_log("ENV CHECK: DB=" . getenv('MYSQLDATABASE'));
+error_log("ENV CHECK: USER=" . getenv('MYSQLUSER'));
+error_log("ENV CHECK: PASS=" . substr(getenv('MYSQLPASSWORD'), 0, 4) . "****");
+error_log("ENV CHECK: PORT=" . getenv('MYSQLPORT'));
 
 try {
     $test = getDB();
