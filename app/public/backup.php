@@ -168,20 +168,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['start_backup'])) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Backup File - Clario</title>
-<link rel="stylesheet" href="assets/css/style.css">
+<link href="https://fonts.googleapis.com/css2?family=Krona+One&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+<script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body>
+<body style="background-color: #f9f9f9;">
 <?php include __DIR__ . '/sidebar.php'; ?>
-<div class="main p-4">
-    <h4>Backup File</h4>
-    <p>Download semua file Anda sebagai satu file ZIP. Tekan tombol "Mulai Backup" untuk memulai.</p>
+<div class="main flex-grow-1 p-4">
+    <div class="header-section d-flex justify-content-between align-items-center mb-4">
+        <div class="welcome-text">
+            <p class="fs-5 mb-1">Backup</p>
+            <h6 class="fw-bold mt-3">Backup File Anda</h6>
+            <p class="text-muted small">Download semua file Anda sebagai satu file ZIP.</p>
+        </div>
+    </div>
+
     <?php if (!empty($_SESSION['error_message'])): ?>
         <div class="alert alert-danger"><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></div>
     <?php endif; ?>
-    <form method="post">
-        <button type="submit" name="start_backup" class="btn btn-primary">Mulai Backup</button>
-    </form>
+    
+    <div style="background:#fff; border:1px solid #e6e6e6; border-radius:8px; padding:20px; max-width:500px;">
+        <p class="text-muted small mb-3">Tekan tombol di bawah untuk membuat backup semua file Anda. File akan diunduh sebagai ZIP.</p>
+        <form method="post">
+            <button type="submit" name="start_backup" class="btn btn-primary">Mulai Backup</button>
+        </form>
+    </div>
 </div>
 </body>
 </html>
