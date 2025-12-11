@@ -1,20 +1,7 @@
 <?php
+
 session_start();
-
-// Minimal debug
-error_log("Login page accessed: " . date('Y-m-d H:i:s'));
-
 require_once __DIR__ . '/connection.php';
-
-// Test connection secara silent
-try {
-    $pdo = getDB();
-    $pdo->query("SELECT 1"); // Just test
-    error_log("✓ Database connected for login");
-} catch (Exception $e) {
-    error_log("✗ Database error in login: " . $e->getMessage());
-    // Don't show error to user in production
-}
 
 // REST OF YOUR LOGIN CODE...
 
@@ -48,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($user['is_admin']) && $user['is_admin'] == 1) {
                 header('Location: admin/dashboard.php');
             } else {
-                header('Location: semuafile.php');
+                header('Location: index.php');
             }
             exit;
         } else {

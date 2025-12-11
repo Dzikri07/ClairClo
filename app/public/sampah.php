@@ -100,23 +100,48 @@
             top: 8px !important; 
             right: 8px !important; 
             display: flex !important; 
-            flex-direction: column !important; 
-            gap: 6px !important; 
-            opacity: 0 !important; 
+            flex-direction: row !important; 
+            gap: 4px !important; 
+            opacity: 1 !important; 
             transition: opacity 0.12s !important; 
-            z-index: 10 !important; 
+            z-index: 1200 !important; 
+            align-items: center !important;
+            pointer-events: auto !important;
         }
         .file-item:hover .card-overlay { 
             opacity: 1 !important; 
         }
         .action-btn-group { 
             display: flex !important; 
-            gap: 6px !important; 
-            flex-direction: column !important; 
+            gap: 4px !important; 
+            flex-direction: row !important; 
+            align-items: center !important;
         }
         .action-btn-group .btn-sm { 
-            font-size: 11px !important; 
-            padding: 6px 8px !important; 
+            font-size: 10px !important; 
+            padding: 2px 4px !important; 
+            min-width: 28px !important;
+            width: 28px !important;
+            height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+        }
+        .action-btn-group .btn-sm i { 
+            margin-right: 0 !important; 
+            margin-left: 0 !important;
+            font-size: 12px !important;
+            line-height: 1 !important;
+            width: 14px !important;
+            height: 14px !important;
+            display: inline-block !important;
+            text-align: center !important;
+        }
+        /* Ensure thumbnail doesn't cover overlay */
+        .file-card .file-thumbnail, .file-card-inner .file-thumbnail {
+            position: relative !important;
+            z-index: 0 !important;
         }
 
         /* Hover effects khusus */
@@ -294,7 +319,7 @@
                     echo '<div class="col">';
                     echo '<div class="d-flex align-items-center gap-3">';
                     echo '<div class="text-center">';
-                    echo '<i class="fa fa-trash fa-2x text-danger"></i>';
+                    // Removed large trash icon to reduce visual clutter
                     echo '<div class="fw-bold mt-1"><span id="trash-count">' . intval($trash['cnt'] ?? 0) . '</span> File di Sampah</div>';
                     echo '</div>';
                     echo '<div class="text-muted small">File akan dihapus permanen setelah 30 hari</div>';
@@ -308,16 +333,16 @@
                     // Grid View
                     foreach ($items as $it) {
                         $fileIdAttr = intval($it['id']);
-                        echo '<div class="file-item" data-file-id="' . $fileIdAttr . '" data-file-name="' . htmlspecialchars($it['name']) . '" data-file-mime="' . htmlspecialchars($it['mime']) . '" data-file-category="' . htmlspecialchars($it['category']) . '">';
+                        echo '<div class="file-item" data-file-id="' . $fileIdAttr . '" data-file-url="' . htmlspecialchars($it['url']) . '" data-file-name="' . htmlspecialchars($it['name']) . '" data-file-mime="' . htmlspecialchars($it['mime']) . '" data-file-category="' . htmlspecialchars($it['category']) . '">';
                         echo '<div class="file-card position-relative">';
                         echo '<div class="file-card-inner">';
                         echo '<div class="card-overlay">';
                         echo '<div class="action-btn-group">';
                         echo '<button class="btn btn-sm btn-success restore-btn" title="Kembalikan file" aria-label="Kembalikan file">';
-                        echo '<i class="fa fa-undo me-1"></i> Pulihkan';
+                        echo '<i class="fa fa-undo"></i>';
                         echo '</button>';
                         echo '<button class="btn btn-sm btn-danger del-perm-btn" title="Hapus permanen" aria-label="Hapus permanen">';
-                        echo '<i class="fa fa-trash"></i> Hapus';
+                        echo '<i class="fa fa-trash"></i>';
                         echo '</button>';
                         echo '</div>';
                         echo '</div>';
@@ -436,6 +461,75 @@
 
         // Default
         setGridMode();
+
+        // Thumbnail / Icon preview toggle - add small UI and behavior
+        (function () {
+            // add preview toggle UI near existing view-toggle (if present)
+            const header = document.querySelector('.header-section div[style*="display:flex"]');
+            if (header) {
+                const previewWrap = document.createElement('div');
+                previewWrap.className = 'view-toggle';
+                previewWrap.style.marginRight = '8px';
+                previewWrap.innerHTML = `
+                    <button class="toggle-btn preview-btn" id="thumb-view" title="Thumbnail"><i class="fa fa-image"></i></button>
+                    <button class="toggle-btn preview-btn" id="icon-view" title="Icon"><i class="fa fa-file"></i></button>
+                `;
+                // insert before the existing view-toggle group
+                const existingView = header.querySelector('.view-toggle');
+                if (existingView) existingView.parentNode.insertBefore(previewWrap, existingView);
+            }
+
+            const thumbBtn = document.getElementById('thumb-view');
+            const iconBtn = document.getElementById('icon-view');
+
+            function determineIconPath(mime) {
+                if (!mime) return 'assets/icons/file.png';
+                if (mime.startsWith('image/')) return 'assets/icons/img.png';
+                if (mime.startsWith('audio/')) return 'assets/icons/music.png';
+                if (mime.startsWith('video/')) return 'assets/icons/vid.png';
+                if (mime.includes('pdf')) return 'assets/icons/pdf.png';
+                return 'assets/icons/file.png';
+            }
+
+            function applyPreviewMode(mode) {
+                const items = document.querySelectorAll('#file-grid .file-item');
+                items.forEach(it => {
+                    const mime = (it.dataset.fileMime || '').toLowerCase();
+                    const url = it.dataset.fileUrl || (it.querySelector('img') ? it.querySelector('img').src : '');
+                    // Prefer the dedicated thumbnail element so we don't overwrite the overlay
+                    const thumbnailElement = it.querySelector('.file-thumbnail') || it.querySelector('.list-view-thumbnail');
+                    const fileCardInner = it.querySelector('.file-card-inner');
+                    const target = thumbnailElement || fileCardInner;
+                    if (!target) return;
+
+                    if (mode === 'thumb' && mime.startsWith('image/') && url) {
+                        if (thumbnailElement) {
+                            thumbnailElement.innerHTML = `<img src="${url}" alt="${it.dataset.fileName || ''}">`;
+                        } else {
+                            // fallback to inner when no dedicated thumbnail element exists
+                            target.innerHTML = `<img src="${url}" alt="${it.dataset.fileName || ''}">`;
+                        }
+                    } else {
+                        const icon = determineIconPath(mime);
+                        if (thumbnailElement) {
+                            thumbnailElement.innerHTML = `<i class="fa fa-file fa-2x text-muted"></i>`;
+                        } else {
+                            target.innerHTML = `<i class="fa fa-file fa-2x text-muted"></i>`;
+                        }
+                        // fallback icon image if present
+                        // thumbnailElement && (thumbnailElement.innerHTML = `<img src="${icon}" class="icon-fallback">`);
+                    }
+                });
+                try { localStorage.setItem('fileThumbnailMode', mode); } catch (e) {}
+                if (thumbBtn) thumbBtn.classList.toggle('active', mode === 'thumb');
+                if (iconBtn) iconBtn.classList.toggle('active', mode === 'icon');
+            }
+
+            const saved = localStorage.getItem('fileThumbnailMode') || 'thumb';
+            applyPreviewMode(saved);
+            if (thumbBtn) thumbBtn.addEventListener('click', () => applyPreviewMode('thumb'));
+            if (iconBtn) iconBtn.addEventListener('click', () => applyPreviewMode('icon'));
+        })();
 
         // Search and category filter - FIXED VERSION
         function filterItems() {

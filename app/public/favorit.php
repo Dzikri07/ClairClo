@@ -21,6 +21,11 @@ $userId = $_SESSION['user_id'] ?? null;
     
     <!-- CSS Files -->
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- Preview libraries: PDF.js, SheetJS (XLSX), Mammoth for DOCX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.12/mammoth.browser.min.js"></script>
     <style>
         /* Additional styles for favorites page */
         .file-list-header {
@@ -718,9 +723,15 @@ if (localStorage.getItem('theme') === 'dark') {
                 <h6 class="fw-bold mt-3">File yang ditandai favorit</h6>
                 <p class="text-muted small">Lihat file yang kamu tandai sebagai favorit.</p>
             </div>
-            <div class="view-toggle">
-                <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak"><span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span></button>
-                <button class="toggle-btn" id="list-view" title="Tampilan Daftar"><span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span></button>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div id="preview-mode-toggle" title="Tampilkan sebagai" style="display:flex; gap:6px; align-items:center;">
+                    <button class="toggle-btn preview-btn active" id="thumb-view" title="Thumbnail"><i class="fa fa-image"></i></button>
+                    <button class="toggle-btn preview-btn" id="icon-view" title="Icon"><i class="fa fa-square-full"></i></button>
+                </div>
+                <div class="view-toggle">
+                    <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak"><span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span></button>
+                    <button class="toggle-btn" id="list-view" title="Tampilan Daftar"><span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span></button>
+                </div>
             </div>
         </div>
 
@@ -807,7 +818,7 @@ if (localStorage.getItem('theme') === 'dark') {
                     $fileDate = date('d M Y', strtotime($it['created_at']));
                     $fileOwner = htmlspecialchars($it['owner'] ?? 'Anda');
                     
-                    echo '<div class="file-item" data-file-id="' . $fileIdAttr . '" data-file-name="' . htmlspecialchars($it['name']) . '" data-file-mime="' . htmlspecialchars($it['mime']) . '" data-file-category="' . $fileCategory . '">';
+                    echo '<div class="file-item" data-file-id="' . $fileIdAttr . '" data-file-name="' . htmlspecialchars($it['name']) . '" data-file-mime="' . htmlspecialchars($it['mime']) . '" data-file-url="' . htmlspecialchars($it['url']) . '" data-file-category="' . $fileCategory . '">';
                     echo '<div class="file-card">';
                     
                     // Thumbnail
@@ -939,6 +950,47 @@ document.addEventListener('DOMContentLoaded', function () {
     // Load saved view mode
     const savedViewMode = localStorage.getItem('fileViewMode') || 'grid';
     updateViewMode(savedViewMode);
+    
+    // Preview mode (thumbnail vs icon)
+    const thumbBtnFav = document.getElementById('thumb-view');
+    const iconBtnFav = document.getElementById('icon-view');
+    function determineIconPathFav(mime) {
+        if (!mime) return 'assets/icons/file.png';
+        if (mime.indexOf('image/') === 0) return 'assets/icons/image.png';
+        if (mime.indexOf('video/') === 0) return 'assets/icons/vid.png';
+        if (mime.indexOf('audio/') === 0) return 'assets/icons/music.png';
+        if (mime.indexOf('pdf') !== -1) return 'assets/icons/pdf.png';
+        if (mime.indexOf('zip') !== -1 || mime.indexOf('compressed') !== -1) return 'assets/icons/archive.png';
+        return 'assets/icons/file.png';
+    }
+
+    function applyPreviewModeFav(mode) {
+        try { localStorage.setItem('fileThumbnailMode', mode); } catch(e) {}
+        if (thumbBtnFav) thumbBtnFav.classList.toggle('active', mode === 'thumb');
+        if (iconBtnFav) iconBtnFav.classList.toggle('active', mode === 'icon');
+        const items = grid ? grid.querySelectorAll('.file-item') : [];
+        items.forEach(item => {
+            const thumb = item.querySelector('.file-thumbnail');
+            if (!thumb) return;
+            const mime = (item.getAttribute('data-file-mime') || '').toLowerCase();
+            const url = item.getAttribute('data-file-url') || '';
+            const iconPath = determineIconPathFav(mime);
+            if (mode === 'thumb') {
+                if (mime.indexOf('image/') === 0 && url) {
+                    thumb.innerHTML = `<img src="${url}" alt="${item.getAttribute('data-file-name')||''}" loading="lazy">`;
+                } else {
+                    thumb.innerHTML = `<img src="${iconPath}" alt="icon" style="max-width:60px; max-height:60px;">`;
+                }
+            } else {
+                thumb.innerHTML = `<img src="${iconPath}" alt="icon" style="max-width:60px; max-height:60px;">`;
+            }
+        });
+    }
+
+    if (thumbBtnFav) thumbBtnFav.addEventListener('click', function(){ applyPreviewModeFav('thumb'); });
+    if (iconBtnFav) iconBtnFav.addEventListener('click', function(){ applyPreviewModeFav('icon'); });
+    const savedThumbModeFav = localStorage.getItem('fileThumbnailMode') || 'thumb';
+    applyPreviewModeFav(savedThumbModeFav);
     
     // Search and category filter
     function filterItems() {
@@ -1108,8 +1160,179 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     });
+
+    /* Double-click preview -> open modal (favorites page) */
+    function showPreviewModalForItem(item) {
+        if (!item) return;
+        const id = item.getAttribute('data-file-id');
+        const name = item.getAttribute('data-file-name') || '';
+        const mime = (item.getAttribute('data-file-mime') || '').toLowerCase();
+        const url = item.getAttribute('data-file-url') || '';
+
+        const modal = document.getElementById('filePreviewModal');
+        if (!modal) return;
+
+        const titleEl = modal.querySelector('.preview-title');
+        const bodyEl = modal.querySelector('.preview-body');
+        const downloadBtn = modal.querySelector('.preview-download');
+        const favBtn = modal.querySelector('.preview-fav');
+        const deleteBtn = modal.querySelector('.preview-delete');
+
+        titleEl.textContent = name;
+        bodyEl.innerHTML = '';
+
+        if (mime.startsWith('image/')) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = name;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            img.loading = 'lazy';
+            bodyEl.appendChild(img);
+
+        } else if (mime.startsWith('video/')) {
+            const v = document.createElement('video');
+            v.src = url;
+            v.controls = true;
+            v.style.width = '100%';
+            bodyEl.appendChild(v);
+
+        } else if (mime.startsWith('audio/')) {
+            const a = document.createElement('audio');
+            a.src = url;
+            a.controls = true;
+            bodyEl.appendChild(a);
+
+        } else if (mime.includes('pdf') || /\.pdf$/i.test(url)) {
+            bodyEl.innerHTML = '<div class="text-center">Loading PDF preview…</div><canvas id="pdf-preview-canvas" style="width:100%;"></canvas>';
+            try {
+                if (!window.pdfjsLib) throw new Error('PDF.js not loaded');
+                const loadingTask = pdfjsLib.getDocument(url);
+                loadingTask.promise.then(function(pdf) {
+                    return pdf.getPage(1).then(function(page) {
+                        const viewport = page.getViewport({scale: 1.0});
+                        const canvas = document.getElementById('pdf-preview-canvas');
+                        const ratio = Math.min(1.6, (bodyEl.clientWidth || 800) / viewport.width);
+                        const scaled = page.getViewport({scale: ratio});
+                        canvas.width = scaled.width;
+                        canvas.height = scaled.height;
+                        const ctx = canvas.getContext('2d');
+                        page.render({canvasContext: ctx, viewport: scaled});
+                    });
+                }).catch(function(err){
+                    bodyEl.innerHTML = '<div class="text-danger">Gagal memuat PDF.</div>';
+                });
+            } catch (err) {
+                bodyEl.innerHTML = '<div class="text-danger">Preview PDF tidak tersedia.</div>';
+            }
+
+        } else if (mime.includes('sheet') || mime.includes('excel') || /\.(xlsx|xls|csv)$/i.test(url)) {
+            bodyEl.innerHTML = '<div class="text-center">Loading spreadsheet preview…</div>';
+            fetch(url).then(r => r.arrayBuffer()).then(ab => {
+                try {
+                    const data = new Uint8Array(ab);
+                    const wb = XLSX.read(data, {type:'array'});
+                    const first = wb.SheetNames[0];
+                    const html = XLSX.utils.sheet_to_html(wb.Sheets[first]);
+                    bodyEl.innerHTML = '<div style="max-height:480px; overflow:auto;">' + html + '</div>';
+                } catch (e) {
+                    bodyEl.innerHTML = '<div class="text-danger">Gagal merender spreadsheet.</div>';
+                }
+            }).catch(()=>{ bodyEl.innerHTML = '<div class="text-danger">Gagal memuat file spreadsheet.</div>'; });
+
+        } else if (mime.includes('word') || /\.docx$/i.test(url)) {
+            bodyEl.innerHTML = '<div class="text-center">Loading document preview…</div>';
+            fetch(url).then(r => r.arrayBuffer()).then(ab => {
+                try {
+                    mammoth.convertToHtml({arrayBuffer: ab}).then(function(result){
+                        bodyEl.innerHTML = '<div style="max-height:560px; overflow:auto;">' + result.value + '</div>';
+                    }).catch(()=>{ bodyEl.innerHTML = '<div class="text-danger">Gagal merender dokumen.</div>'; });
+                } catch (e) {
+                    bodyEl.innerHTML = '<div class="text-danger">Gagal merender dokumen.</div>';
+                }
+            }).catch(()=>{ bodyEl.innerHTML = '<div class="text-danger">Gagal memuat file dokumen.</div>'; });
+
+        } else {
+            const wrap = document.createElement('div');
+            wrap.style.display = 'flex';
+            wrap.style.alignItems = 'center';
+            wrap.style.gap = '12px';
+            const icon = document.createElement('i');
+            icon.className = 'fa fa-file fa-3x';
+            icon.style.color = '#6c757d';
+            const info = document.createElement('div');
+            info.innerHTML = `<div style="font-weight:600">${name}</div><div class="text-muted small">${mime || 'Tipe file tidak diketahui'}</div>`;
+            wrap.appendChild(icon);
+            wrap.appendChild(info);
+            bodyEl.appendChild(wrap);
+        }
+
+        downloadBtn.onclick = function () { window.open(url, '_blank'); };
+
+        favBtn.onclick = function () {
+            fetch('favorite.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ file_id: id }) })
+            .then(r=>r.json()).then(j=>{
+                if (j.success) {
+                    const localFav = document.querySelector('.file-item[data-file-id="' + id + '"] .fav-btn');
+                    if (localFav) localFav.classList.toggle('active');
+                    Swal.fire({ toast:true, position:'bottom-end', icon:'success', title:j.message || 'Updated', showConfirmButton:false, timer:1200 });
+                    if (j.counts) updateCounts && updateCounts(j.counts);
+                } else {
+                    Swal.fire({ icon:'error', title:'Gagal', text: j.message || 'Gagal memperbarui favorit' });
+                }
+            }).catch(()=>{ Swal.fire({ icon:'error', title:'Network error' }); });
+        };
+
+        deleteBtn.onclick = function () {
+            if (!confirm(`Hapus "${name}"? File akan dipindahkan ke sampah.`)) return;
+            fetch('delete.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ file_id: id }) })
+            .then(r=>r.json()).then(j=>{
+                if (j.success) {
+                    const el = document.querySelector('.file-item[data-file-id="' + id + '"]');
+                    if (el) el.remove();
+                    const bs = bootstrap.Modal.getInstance(modal);
+                    if (bs) bs.hide();
+                    Swal.fire({ toast:true, position:'bottom-end', icon:'success', title:j.message || 'Terhapus', showConfirmButton:false, timer:1200 });
+                    if (j.counts) updateCounts && updateCounts(j.counts);
+                } else {
+                    Swal.fire({ icon:'error', title:'Gagal', text: j.message || 'Gagal menghapus file' });
+                }
+            }).catch(()=>{ Swal.fire({ icon:'error', title:'Network error' }); });
+        };
+
+        const bsModal = new bootstrap.Modal(document.getElementById('filePreviewModal'));
+        bsModal.show();
+    }
+
+    if (grid) {
+        grid.addEventListener('dblclick', function(e){
+            const item = e.target.closest('.file-item');
+            if (!item) return;
+            showPreviewModalForItem(item);
+        });
+    }
+
 });
 </script>
+
+<!-- File Preview Modal (Favorit Page) -->
+<div class="modal fade" id="filePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title preview-title">Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body preview-body" style="min-height:220px; display:flex; align-items:center; justify-content:center;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary preview-download"><i class="fa fa-download"></i> Download</button>
+                <button type="button" class="btn btn-outline-warning preview-fav"><i class="fa fa-star"></i> Favorit</button>
+                <button type="button" class="btn btn-outline-danger preview-delete"><i class="fa fa-trash"></i> Hapus</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Profile Modal -->
 <!-- Tambahkan kode profile modal dari index.php jika diperlukan -->

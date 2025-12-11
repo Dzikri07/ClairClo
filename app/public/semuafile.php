@@ -18,6 +18,8 @@ $userId = $_SESSION['user_id'] ?? null;
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/file-grid.css">
+    <link rel="stylesheet" href="assets/css/files.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
     /* View Switcher Styles */
@@ -74,6 +76,25 @@ $userId = $_SESSION['user_id'] ?? null;
 
     .toggle-btn:last-child {
         border-radius: 0 5px 5px 0;
+    }
+
+    /* Header card for a cleaner look */
+    .header-card {
+        background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(250,250,250,0.95));
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+
+    .category-select {
+        min-width: 160px !important;
+        border-radius: 90px !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        background: #fff;
+        border: 1px solid rgba(0,0,0,0.06);
+        color: var(--text-primary);
     }
 
     /* Header and search bar styling */
@@ -358,46 +379,6 @@ $userId = $_SESSION['user_id'] ?? null;
         border-color: #aaa;
     }
 
-    /* More Button & Menu */
-    .more-btn {
-        position: absolute;
-        right: 8px;
-        top: 8px;
-        background: rgba(255, 255, 255, 0.9);
-        border: 1px solid #ddd;
-        cursor: pointer;
-        padding: 6px 8px;
-        border-radius: 4px;
-        color: #6c757d;
-        transition: all 0.2s ease;
-        z-index: 20;
-        display: none;
-        font-size: 12px;
-    }
-
-    .more-btn:hover {
-        background: rgba(255, 255, 255, 0.9);
-        border-color: #ddd;
-        color: #6c757d;
-    }
-
-    #file-grid.list-view-mode .more-btn {
-        display: block !important;
-        position: static;
-        background: #f5f5f5;
-        border: none;
-        flex-shrink: 0;
-    }
-
-    #file-grid.list-view-mode .more-btn:hover {
-        background: #e9ecef;
-        border-color: transparent;
-    }
-
-    #file-grid.grid-view-mode .more-btn {
-        display: block;
-    }
-
     .more-menu {
         position: fixed;
         min-width: 160px;
@@ -569,7 +550,7 @@ $userId = $_SESSION['user_id'] ?? null;
 <div class="d-flex">
     <?php include __DIR__ . '/sidebar.php'; ?>
     <div class="main flex-grow-1 p-4">
-        <div class="header-section d-flex justify-content-between align-items-center mb-4">
+        <div class="header-section d-flex justify-content-between align-items-center mb-4 header-card">
             <div class="welcome-text">
                 <p class="fs-5 mb-1">Semua File</p>
                 <h6 class="fw-bold mt-3">File yang tersimpan</h6>
@@ -577,24 +558,33 @@ $userId = $_SESSION['user_id'] ?? null;
             </div>
             <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <div class="input-group" style="width:260px;">
+                    <div class="input-group" style="width:320px;">
                         <input id="file-search" type="text" class="form-control form-control-sm" placeholder="Cari file...">
                         <button id="file-search-btn" class="btn btn-primary btn-sm" type="button" title="Cari"><i class="fa fa-search"></i></button>
                     </div>
-                    <span class="category-chip" data-filter="image">Gambar</span>
-                    <span class="category-chip" data-filter="video">Video</span>
-                    <span class="category-chip" data-filter="audio">Audio</span>
-                    <span class="category-chip" data-filter="document">Dokumen</span>
-                    <span class="category-chip" data-filter="archive">Arsip</span>
-                    <span class="category-chip" data-filter="other">Lainnya</span>
+                    <select id="category-filter" class="form-select form-select-sm category-select" aria-label="Filter Kategori">
+                        <option value="">Semua Kategori</option>
+                        <option value="image">Gambar</option>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                        <option value="document">Dokumen</option>
+                        <option value="archive">Arsip</option>
+                        <option value="other">Lainnya</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                <div class="view-toggle">
+                    <button class="toggle-btn preview-btn" id="thumb-view" title="Thumbnail"><i class="fa fa-image"></i></button>
+                    <button class="toggle-btn preview-btn" id="icon-view" title="Icon"><i class="fa fa-file"></i></button>
                 </div>
                 <div class="view-toggle">
-                <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak">
-                    <span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span>
-                </button>
-                <button class="toggle-btn" id="list-view" title="Tampilan Daftar">
-                    <span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span>
-                </button>
+                    <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak">
+                        <span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span>
+                    </button>
+                    <button class="toggle-btn" id="list-view" title="Tampilan Daftar">
+                        <span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span>
+                    </button>
+                </div>
                 </div>
             </div>
         </div>
@@ -687,12 +677,19 @@ $userId = $_SESSION['user_id'] ?? null;
     data-name="{$fileNameEsc}"
     data-category="{$mime}">
     <div class="file-card">
+        <!-- top-right small actions (fav / delete / more) -->
+        <div class="top-actions" style="position: absolute; top: 8px; right: 8px; display: flex; flex-direction: row; flex-wrap: nowrap; gap: 4px; z-index: 50; align-items: center;">
+            <button class="action-btn action-fav" title="Favorit" data-file-id="{$fileIdAttr}" data-favorite="{$isFav}" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                <i class="fa fa-star{$favClass}"></i>
+            </button>
+            <button class="action-btn action-delete" title="Hapus" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                <i class="fa fa-trash"></i>
+            </button>
+            <button class="action-btn action-more" aria-label="Opsi" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;"><i class="fa fa-ellipsis-v"></i></button>
+        </div>
+
         <div class="file-card-inner">
             {$iconAttr}
-            <div class="card-overlay">
-                <button class="btn btn-sm btn-light fav-btn{$favClass}" data-file-id="{$fileIdAttr}" data-favorite="{$isFav}" title="Tambah ke favorit"><i class="fa fa-star"></i></button>
-                <button class="btn btn-sm btn-light del-btn" title="Hapus"><i class="fa fa-trash"></i></button>
-            </div>
         </div>
 
         <div class="file-row-columns">
@@ -701,7 +698,7 @@ $userId = $_SESSION['user_id'] ?? null;
             <div class="col col-modified">{$modified}</div>
             <div class="col col-size">{$fileSizeStr}</div>
             <div class="col col-actions">
-                <button class="more-btn" aria-label="Opsi"><i class="fa fa-ellipsis-v"></i></button>
+                <button class="action-btn action-more" aria-label="Opsi" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;"><i class="fa fa-ellipsis-v"></i></button>
             </div>
         </div>
     </div><!-- .file-card -->
@@ -716,8 +713,7 @@ HTML;
     // Wire search input to filter results in real-time
     document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('file-search');
-            const searchBtn = document.getElementById('file-search-btn');
-        const categoryChips = document.querySelectorAll('.category-chip');
+        const searchBtn = document.getElementById('file-search-btn');
         const grid = document.getElementById('file-grid');
         
         if (!searchInput || !grid) return;
@@ -813,15 +809,55 @@ HTML;
 
         // Close all menus when clicking outside
         document.addEventListener('click', function (e) {
-            if (!e.target.closest('.more-btn') && !e.target.closest('.more-menu')) {
+            if (!e.target.closest('.action-more') && !e.target.closest('.more-menu')) {
                 closeAllMenus();
             }
         });
 
+        // Thumbnail / Icon preview toggle (persisted)
+        const thumbBtn = document.getElementById('thumb-view');
+        const iconBtn = document.getElementById('icon-view');
+
+        function determineIconPath(mime) {
+            if (!mime) return 'assets/icons/file.png';
+            if (mime.startsWith('image/')) return 'assets/icons/img.png';
+            if (mime.startsWith('audio/')) return 'assets/icons/music.png';
+            if (mime.startsWith('video/')) return 'assets/icons/vid.png';
+            if (mime.includes('pdf')) return 'assets/icons/pdf.png';
+            if (mime.includes('zip') || mime.includes('archive')) return 'assets/icons/archive.png';
+            return 'assets/icons/file.png';
+        }
+
+        function applyPreviewMode(mode) {
+            const items = document.querySelectorAll('#file-grid .file-item');
+            items.forEach(it => {
+                const mime = (it.dataset.fileMime || '').toLowerCase();
+                const url = it.dataset.fileUrl || (it.querySelector('img') ? it.querySelector('img').src : '');
+                const thumbTarget = it.querySelector('.file-card-inner') || it.querySelector('.file-thumbnail') || it.querySelector('.list-view-thumbnail');
+                if (!thumbTarget) return;
+                if (mode === 'thumb' && mime.startsWith('image/') && url) {
+                    thumbTarget.innerHTML = `<img src="${url}" alt="${it.dataset.fileName || ''}" />`;
+                } else {
+                    const icon = determineIconPath(mime);
+                    thumbTarget.innerHTML = `<img src="${icon}" class="icon-fallback" alt="icon">`;
+                }
+            });
+            try { localStorage.setItem('fileThumbnailMode', mode); } catch (e) {}
+            if (thumbBtn) thumbBtn.classList.toggle('active', mode === 'thumb');
+            if (iconBtn) iconBtn.classList.toggle('active', mode === 'icon');
+        }
+
+        // Initialize saved mode
+        const savedThumbMode = localStorage.getItem('fileThumbnailMode') || 'thumb';
+        applyPreviewMode(savedThumbMode);
+
+        if (thumbBtn) thumbBtn.addEventListener('click', function () { applyPreviewMode('thumb'); });
+        if (iconBtn) iconBtn.addEventListener('click', function () { applyPreviewMode('icon'); });
+
         // Delegated click handlers for all actions
         grid.addEventListener('click', function (e) {
             // Favorite button (overlay - grid only)
-            if (e.target.closest('.fav-btn')) {
+            if (e.target.closest('.action-fav')) {
                 const item = e.target.closest('.file-item');
                 const fileId = item.dataset.fileId;
                 toggleFavorite(fileId, item);
@@ -829,7 +865,7 @@ HTML;
             }
 
             // Delete button (overlay - grid only)
-            if (e.target.closest('.del-btn')) {
+            if (e.target.closest('.action-delete')) {
                 const item = e.target.closest('.file-item');
                 const fileId = item.dataset.fileId;
                 doDelete(fileId, item);
@@ -837,7 +873,7 @@ HTML;
             }
 
             // More button toggle
-            if (e.target.closest('.more-btn')) {
+            if (e.target.closest('.action-more')) {
                 e.stopPropagation();
                 const item = e.target.closest('.file-item');
                 toggleMoreMenu(item);
@@ -867,7 +903,7 @@ HTML;
             
             closeAllMenus(fileItem);
             
-            const btn = fileItem.querySelector('.more-btn');
+            const btn = fileItem.querySelector('.action-more');
             if (!btn) return;
             
             let menu = fileItem.querySelector('.more-menu');
@@ -1022,29 +1058,44 @@ HTML;
         }
 
         function toggleFavorite(fileId, itemEl) {
-            if (!fileId) return;
+            if (!fileId || !itemEl) return;
+            const favBtn = itemEl.querySelector('.action-fav');
+            if (!favBtn) return;
+            
             fetch('favorite.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_id: fileId })
             }).then(r => r.json()).then(j => {
                 if (j.success) {
-                    if (itemEl) {
-                        itemEl.classList.toggle('favorited', j.is_favorite == 1);
-                        const favBtn = itemEl.querySelector('.fav-btn');
-                        if (favBtn) favBtn.dataset.favorite = j.is_favorite == 1 ? 'true' : 'false';
+                    if (j.is_favorite == 1) {
+                        favBtn.classList.add('active');
+                        const icon = favBtn.querySelector('i');
+                        if (icon) icon.className = 'fa fa-star';
+                        itemEl.classList.add('favorited');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Ditambahkan ke favorit',
+                            position: 'bottom-right',
+                            toast: true,
+                            showConfirmButton: false,
+                            timer: 2000
+                        });
+                    } else {
+                        favBtn.classList.remove('active');
+                        const icon = favBtn.querySelector('i');
+                        if (icon) icon.className = 'fa fa-star-o';
+                        itemEl.classList.remove('favorited');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Dihapus dari favorit',
+                            position: 'bottom-right',
+                            toast: true,
+                            showConfirmButton: false,
+                            timer: 2000
+                        });
                     }
                     updateCounts(j.counts);
-                    const msg = j.is_favorite == 1 ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit';
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Berhasil',
-                        text: msg,
-                        position: 'bottom-right',
-                        toast: true,
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
                 } else {
                     Swal.fire({
                         icon: 'error',

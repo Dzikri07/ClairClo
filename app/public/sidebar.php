@@ -81,6 +81,7 @@ if ($userId) {
         <li class="nav-item"><a href="<?php echo $baseUrl; ?>/favorit.php" class="nav-link <?php echo ($current === 'favorit.php') ? 'active' : ''; ?>"><i class="fa fa-star me-2"></i> Favorit</a></li>
         <li class="nav-item"><a href="<?php echo $baseUrl; ?>/sampah.php" class="nav-link <?php echo ($current === 'sampah.php') ? 'active' : ''; ?>"><i class="fa fa-trash me-2"></i> Sampah</a></li>
         <li class="nav-item"><a href="<?php echo $baseUrl; ?>/request_storage.php" class="nav-link <?php echo ($current === 'request_storage.php') ? 'active' : ''; ?>"><i class="fa fa-plus-circle me-2"></i> Minta Storage</a></li>
+        <li class="nav-item"><a href="<?php echo $baseUrl; ?>/backup.php" class="nav-link <?php echo ($current === 'backup.php') ? 'active' : ''; ?>"><i class="fa fa-download me-2"></i> Backup</a></li>
         <?php endif; ?>
     </ul>
     <div class="mt-auto">
@@ -286,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Theme toggle function
 function toggleTheme() {
+    document.documentElement.classList.toggle('dark-mode');
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -295,14 +297,48 @@ function toggleTheme() {
     if (themeText) {
         themeText.textContent = isDark ? 'Light Mode' : 'Night Mode';
     }
+
+    // Also explicitly set CSS variables on :root so any stylesheet ordering
+    // or hardcoded selectors are overridden by these runtime values.
+    applyThemeVariables(isDark);
 }
 
 // Load theme preference on page load
 if (localStorage.getItem('theme') === 'dark') {
+    document.documentElement.classList.add('dark-mode');
     document.body.classList.add('dark-mode');
     const themeText = document.getElementById('theme-text');
     if (themeText) {
         themeText.textContent = 'Light Mode';
     }
 }
+
+// Apply CSS variable values according to current theme
+function applyThemeVariables(isDark) {
+    const root = document.documentElement;
+    if (isDark) {
+        root.style.setProperty('--bg-primary', '#1a1a1a');
+        root.style.setProperty('--bg-card', '#2a2a2a');
+        root.style.setProperty('--text-primary', '#f0f0f0');
+        root.style.setProperty('--text-muted', '#9aa4b2');
+        root.style.setProperty('--border-color', '#444');
+        root.style.setProperty('--sidebar-bg', '#1f1f1f');
+        root.style.setProperty('--sidebar-border', '#444');
+    } else {
+        root.style.setProperty('--bg-primary', '#f9f9f9');
+        root.style.setProperty('--bg-card', '#ffffff');
+        root.style.setProperty('--text-primary', '#333333');
+        root.style.setProperty('--text-muted', '#999999');
+        root.style.setProperty('--border-color', '#e0e0e0');
+        root.style.setProperty('--sidebar-bg', '#f4f4f4');
+        root.style.setProperty('--sidebar-border', '#ddd');
+    }
+}
+
+// Ensure variables are applied at load according to persisted preference
+document.addEventListener('DOMContentLoaded', function () {
+    const isDark = localStorage.getItem('theme') === 'dark' || document.body.classList.contains('dark-mode');
+    applyThemeVariables(isDark);
+    console.debug('[theme] applied variables, dark=', isDark, ' --sidebar-bg=', getComputedStyle(document.documentElement).getPropertyValue('--sidebar-bg'));
+});
 </script>

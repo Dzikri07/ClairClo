@@ -10,7 +10,7 @@ if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
 
 $internalDir = __DIR__ . '/../../internal_files';
 $backupDir = $internalDir . '/backup';
-$uploadsDir = __DIR__ . '/../../uploads'; // Base uploads directory
+$uploadsDir = realpath(__DIR__ . '/../uploads') ?: (__DIR__ . '/../uploads'); // Base uploads directory (ensure points to app/public/uploads)
 
 if (!is_dir($internalDir)) {
     @mkdir($internalDir, 0755, true);
@@ -140,22 +140,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 if ($storage && !empty($storage['storage_path'])) {
                     $storagePath = $storage['storage_path'];
                     $debugInfo[] = "DB storage_path: " . $storagePath;
-                    
-                    // Convert to absolute path
-                    if (strpos($storagePath, 'uploads') === 0) {
-                        // Handle relative path like "uploads\user_3"
-                        $absolutePath = str_replace('uploads', $baseUploads, $storagePath);
-                        if (is_file($absolutePath)) {
-                            $fileFound = true;
-                            $sourcePath = $absolutePath;
-                            $debugInfo[] = "Found via DB path (converted): " . $absolutePath;
-                        }
+
+                    // Normalize separators for processing
+                    $normalizedStorage = str_replace('\\', '/', $storagePath);
+
+                    // Prepare candidate absolute paths to try
+                    $candidates = [];
+
+                    // If storage path looks like it references uploads (relative)
+                    if (preg_match('#^uploads(?:/.*)?$#i', $normalizedStorage)) {
+                        // Remove leading 'uploads' to get relative remainder (may be just folder)
+                        $relative = preg_replace('#^uploads#i', '', $normalizedStorage);
+                        $relative = ltrim($relative, '/'); // e.g. 'user_3' or 'user_3/subdir'
+
+                        // Candidate: the storage path resolved directly under base uploads
+                        $candidates[] = $baseUploads . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+
+                        // If storage path is a directory (no filename), try appending the expected filename
+                        $candidates[] = $baseUploads . DIRECTORY_SEPARATOR . ($relative ? $relative . DIRECTORY_SEPARATOR : '') . $file['filename'];
+
+                        // Also try top-level under uploads with filename
+                        $candidates[] = $baseUploads . DIRECTORY_SEPARATOR . $file['filename'];
                     } else {
-                        // Try as absolute path
-                        if (is_file($storagePath)) {
+                        // Try the storagePath interpreted as absolute or relative path
+                        $candidates[] = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $storagePath);
+                        // Also try combining base uploads + storage path if it looks like a relative path
+                        $candidates[] = $baseUploads . DIRECTORY_SEPARATOR . ltrim(str_replace('/', DIRECTORY_SEPARATOR, $storagePath), DIRECTORY_SEPARATOR);
+                        // Also try appending filename to storage path
+                        $candidates[] = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $storagePath), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file['filename'];
+                    }
+
+                    // Normalize and test candidates
+                    foreach ($candidates as $cand) {
+                        $candNorm = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $cand);
+                        if (is_file($candNorm)) {
                             $fileFound = true;
-                            $sourcePath = $storagePath;
-                            $debugInfo[] = "Found via DB path (absolute): " . $storagePath;
+                            $sourcePath = $candNorm;
+                            $debugInfo[] = "Found via DB path (candidate): " . $candNorm;
+                            break;
                         }
                     }
                 }
@@ -239,6 +261,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $message .= " Gagal backup " . count($backupErrors) . " file.";
                 }
                 $messageType = 'success';
+                // If ZIP was created, trigger immediate download response
+                if (!empty($zipFilePath) && is_file($zipFilePath)) {
+                    // Redirect to the download handler at the top of this file
+                    header('Location: file_internal.php?download_backup=' . urlencode(basename($zipFilePath)));
+                    exit;
+                }
             } else {
                 // Clean up empty directory
                 if (is_dir($userBackupDir)) {

@@ -5,7 +5,7 @@
 session_start();
 require_once __DIR__ . '/connection.php';
 require_once __DIR__ . '/file_functions.php';
-var_dump(getenv('MYSQLHOST'));
+// debug removed: var_dump(getenv('MYSQLHOST'));
 
 function extractCategory($mime) {
     if (!$mime) return 'other';
@@ -76,29 +76,29 @@ $items = array_slice($items, 0, 10);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
-    <link rel="stylesheet" href="assets/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-    /* Minimal extra styles retained from original */
-    .more-btn { z-index: 9999; background:none; border:none; padding:6px; border-radius:6px; color:#6c757d; cursor:pointer; }
-    .more-menu { position: fixed; min-width:150px; background:#fff; border-radius:8px; border:1px solid rgba(0,0,0,0.08); box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden; z-index:99999; display:none; padding:6px 0; }
-    .more-menu.show { display:block; }
-    .more-menu .more-item { display:flex; align-items:center; gap:10px; width:100%; padding:8px 12px; font-size:14px; background:none; border:none; text-align:left; cursor:pointer; }
-    .more-menu .more-item i { width:18px; text-align:center; }
-    .more-menu .more-item:hover { background:#f5f9fb; }
 
-    /* file-grid defaults (simple) */
-    #file-grid.grid-view-mode { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; }
-    #file-grid.list-view-mode { display:block; }
-    .file-item { background:transparent; }
-    .file-card { padding:10px; border-radius:10px; background:#fff; display:flex; flex-direction:column; align-items:center; gap:8px; }
-    .file-info { text-align:center; }
-    
-    /* New styles for search and filter functionality */
-    .file-item.hidden { display: none !important; }
+    <!-- Centralized stylesheet -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/file-grid.css">
+    <link rel="stylesheet" href="assets/css/files.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Preview libraries: PDF.js, SheetJS (XLSX), Mammoth for DOCX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.12/mammoth.browser.min.js"></script>
+
+    <style>
+        /* keep only minimal overrides for floating menus to avoid conflicts with shared CSS */
+        .more-menu { position: fixed; min-width:150px; background:var(--bg-card,#fff); border-radius:8px; border:1px solid rgba(0,0,0,0.08); box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden; z-index:99999; display:none; padding:6px 0; }
+        .more-menu.show { display:block; }
+        .more-menu .more-item { display:flex; align-items:center; gap:10px; width:100%; padding:8px 12px; font-size:14px; background:none; border:none; text-align:left; cursor:pointer; }
+        .more-menu .more-item i { width:18px; text-align:center; }
     </style>
 </head>
-<body id="index-page" style="background-color:var(--bg-primary);">
+<body id="index-page">
 <script>
 // Load theme preference immediately to prevent flash
 if (localStorage.getItem('theme') === 'dark') {
@@ -113,8 +113,8 @@ if (localStorage.getItem('theme') === 'dark') {
             <h4 class="fw-bold">Beranda</h4>
             <div class="d-flex align-items-center header-controls gap-3">
                 <div class="search-bar d-flex align-items-center gap-2">
-                    <input type="text" id="search-input" class="form-control rounded-pill" placeholder="Telusuri file..." style="background-color:#d4dedf; width:200px;">
-                    <select id="category-filter" class="form-select rounded-pill" style="background-color:#d4dedf; width:120px;">
+                    <input type="text" id="search-input" class="form-control rounded-pill" placeholder="Telusuri file..." style="width:200px;">
+                    <select id="category-filter" class="form-select rounded-pill" style="width:120px;">
                         <option value="">Semua</option>
                         <option value="image">Gambar</option>
                         <option value="video">Video</option>
@@ -124,7 +124,7 @@ if (localStorage.getItem('theme') === 'dark') {
                         <option value="other">Lainnya</option>
                     </select>
                 </div>
-                <span class="iconify ms-3 fs-5 settings-btn" data-icon="mdi:settings" title="Pengaturan" style="cursor:pointer;"></span>
+                <span class="iconify ms-3 fs-5 settings-btn" data-icon="mdi:settings" title="Pengaturan" style="cursor:pointer"></span>
                 <button class="btn btn-link p-0 ms-3" data-bs-toggle="modal" data-bs-target="#profileModal" title="Akun"><i class="fa fa-user fs-5"></i></button>
             </div>
         </div>
@@ -135,13 +135,19 @@ if (localStorage.getItem('theme') === 'dark') {
                 <h6 class="fw-bold mt-3">Baru-baru ini diunggah</h6>
                 <p class="text-muted small">Lihat file yang baru-baru ini diunggah.</p>
             </div>
-            <div class="view-toggle">
-                <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak"><span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span></button>
-                <button class="toggle-btn" id="list-view" title="Tampilan Daftar"><span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span></button>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div id="preview-mode-toggle" title="Tampilkan sebagai" style="display:flex; gap:6px; align-items:center;">
+                    <button class="toggle-btn preview-btn active" id="thumb-view" title="Thumbnail"><i class="fa fa-image"></i></button>
+                    <button class="toggle-btn preview-btn" id="icon-view" title="Icon"><i class="fa fa-square-full"></i></button>
+                </div>
+                <div class="view-toggle">
+                    <button class="toggle-btn active" id="grid-view" title="Tampilan Kotak"><span class="iconify" data-icon="mdi:view-grid-outline" data-width="18"></span></button>
+                    <button class="toggle-btn" id="list-view" title="Tampilan Daftar"><span class="iconify" data-icon="mdi:view-list-outline" data-width="18"></span></button>
+                </div>
             </div>
         </div>
 
-        <div id="file-grid" data-page="home">
+        <div id="file-grid" data-page="home" class="grid-view-mode">
             <?php if (!$userId): ?>
                 <div class="text-center py-5">
                     <i class="fa fa-lock fa-3x text-muted mb-3" style="display: block;"></i>
@@ -164,7 +170,7 @@ if (localStorage.getItem('theme') === 'dark') {
                     $fileSizeStr = is_numeric($it['size'] ?? null) ? human_filesize($it['size']) : htmlspecialchars($it['size'] ?? '');
                     $mime = $it['mime'] ?? '';
                     $iconPath = 'assets/icons/file.png';
-                    if (strpos($mime,'image/')===0) $iconPath='assets/icons/image.png';
+                    if (strpos($mime,'image/')===0) $iconPath='assets/icons/img.png';
                     elseif (strpos($mime,'video/')===0) $iconPath='assets/icons/vid.png';
                     elseif (strpos($mime,'audio/')===0) $iconPath='assets/icons/music.png';
                     elseif (strpos($mime,'pdf')!==false) $iconPath='assets/icons/pdf.png';
@@ -173,34 +179,42 @@ if (localStorage.getItem('theme') === 'dark') {
                     $categoryAttr = extractCategory($mime);
                 ?>
               <div class="file-item"
-     data-file-id="<?php echo $fileId; ?>"
-     data-file-url="<?php echo $fileUrl; ?>"
-     data-file-name="<?php echo $fileName; ?>"
-     data-file-mime="<?php echo htmlspecialchars($mime, ENT_QUOTES); ?>"
-     data-category="<?php echo $categoryAttr; ?>"
-     data-name="<?php echo htmlspecialchars(strtolower($fileNameRaw), ENT_QUOTES); ?>">
+                data-file-id="<?php echo $fileId; ?>"
+                data-file-url="<?php echo $fileUrl; ?>"
+                data-file-name="<?php echo $fileName; ?>"
+                data-file-mime="<?php echo htmlspecialchars($mime, ENT_QUOTES); ?>"
+                data-category="<?php echo $categoryAttr; ?>"
+                data-name="<?php echo htmlspecialchars(strtolower($fileNameRaw), ENT_QUOTES); ?>">
 
-    <div class="file-card">
-        <div class="file-card-inner">
-            <div class="file-thumbnail">
-                <?php if (strpos($mime,'image/')===0): ?>
-                    <img src="<?php echo $fileUrl; ?>" alt="<?php echo $fileName; ?>" style="max-width:100%; height:auto; border-radius:8px;">
-                <?php else: ?>
-                    <img src="<?php echo $iconPath; ?>" alt="<?php echo $fileName; ?>" style="max-width: 60px; max-height: 60px;">
-                <?php endif; ?>
+                <div class="file-card">
+                    <!-- top-right small actions (fav / delete / more) -->
+                    <div class="top-actions" style="position: absolute; top: 8px; right: 8px; display: flex; flex-direction: row; flex-wrap: nowrap; gap: 4px; z-index: 50; align-items: center;">
+                        <button class="action-btn action-fav" title="Favorit" data-file-id="<?php echo $fileId; ?>" data-favorite="<?php echo ($it['is_favorite'] ? '1' : '0'); ?>" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <i class="<?php echo ($it['is_favorite'] ? 'fa fa-star' : 'fa fa-star-o'); ?>"></i>
+                        </button>
+                        <button class="action-btn action-delete" title="Hapus" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                        <button class="action-btn action-more" aria-label="Opsi" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;"><i class="fa fa-ellipsis-v"></i></button>
+                    </div>
+
+                    <div class="file-card-inner">
+                        <div class="file-thumbnail">
+                            <?php if (strpos($mime,'image/')===0): ?>
+                                <img src="<?php echo $fileUrl; ?>" alt="<?php echo $fileName; ?>" style="max-width:100%; height:auto; border-radius:8px;">
+                            <?php else: ?>
+                                <img src="<?php echo $iconPath; ?>" alt="<?php echo $fileName; ?>" style="max-width: 60px; max-height: 60px;">
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="file-info">
+                        <p class="file-name file-name-multiline"><?php echo $fileName; ?></p>
+                        <p class="file-size"><?php echo $fileSizeStr; ?></p>
+                    </div>
+                </div>
+
             </div>
-        </div>
-
-        <button class="more-btn" aria-label="Opsi"><i class="fa fa-ellipsis-v"></i></button>
-
-        <div class="file-info">
-            <p class="file-name file-name-multiline"><?php echo $fileName; ?></p>
-            <p class="file-size"><?php echo $fileSizeStr; ?></p>
-        </div>
-    </div>
-
-</div>
-
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
@@ -221,18 +235,19 @@ if (localStorage.getItem('theme') === 'dark') {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOM loaded - starting search functionality');
-    
+    console.log('DOM loaded - starting search functionality and UI handlers');
+
     // Elements
     const fileGrid = document.getElementById('file-grid');
     const searchInput = document.getElementById('search-input');
     const categorySelect = document.getElementById('category-filter');
+    const globalMenu = document.getElementById('global-more-menu');
 
-    // Add CSS for hiding
+    // Inject hide CSS for search results (keeps things consistent)
     const style = document.createElement('style');
     style.textContent = `
-        .file-item.hidden { 
-            display: none !important; 
+        .file-item.hidden {
+            display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
             height: 0 !important;
@@ -242,62 +257,37 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         .file-item:not(.hidden) {
             display: block !important;
+            position: relative !important;
+            height: auto !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
     `;
     document.head.appendChild(style);
 
     // Simple and robust search function
     function performSearchAndFilter() {
-        console.log('=== PERFORMING SEARCH ===');
-        
-        if (!fileGrid) {
-            console.error('fileGrid not found!');
-            return;
-        }
-
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        const selectedCategory = categorySelect.value;
-        
-        console.log('Search term:', searchTerm);
-        console.log('Selected category:', selectedCategory);
+        if (!fileGrid) return;
+        const searchTerm = (searchInput ? searchInput.value : '').toLowerCase().trim();
+        const selectedCategory = (categorySelect ? categorySelect.value : '');
 
         const fileItems = fileGrid.querySelectorAll('.file-item');
-        console.log('Total file items found:', fileItems.length);
-
         let visibleCount = 0;
-
-        fileItems.forEach((item, index) => {
-            // Get file data
+        fileItems.forEach((item) => {
             const fileName = item.getAttribute('data-name') || '';
             const fileCategory = item.getAttribute('data-category') || '';
-            
-            console.log(`File ${index}: "${fileName}" [${fileCategory}]`);
-
-            // Check matches
             const matchesSearch = searchTerm === '' || fileName.includes(searchTerm);
             const matchesCategory = selectedCategory === '' || fileCategory === selectedCategory;
-            
             const shouldShow = matchesSearch && matchesCategory;
-            
-            console.log(`  Search match: ${matchesSearch}, Category match: ${matchesCategory}, Show: ${shouldShow}`);
-
             if (shouldShow) {
                 item.classList.remove('hidden');
-                item.style.display = '';
-                item.style.visibility = 'visible';
-                item.style.opacity = '1';
                 visibleCount++;
             } else {
                 item.classList.add('hidden');
-                item.style.display = 'none';
-                item.style.visibility = 'hidden';
-                item.style.opacity = '0';
             }
         });
 
-        console.log('Visible items:', visibleCount);
-
-        // Handle no results
+        // Manage no-results message
         const existingNoResults = document.getElementById('no-results-message');
         if (visibleCount === 0) {
             if (!existingNoResults) {
@@ -310,45 +300,25 @@ document.addEventListener('DOMContentLoaded', function () {
                     <p class="text-muted">Tidak ada file yang sesuai dengan pencarian Anda.</p>
                 `;
                 fileGrid.appendChild(noResultsMsg);
-                console.log('No results message added');
             }
         } else {
-            if (existingNoResults) {
-                existingNoResults.remove();
-                console.log('No results message removed');
-            }
+            if (existingNoResults) existingNoResults.remove();
         }
     }
 
-    // Event listeners
-    if (searchInput && categorySelect) {
-        console.log('Adding event listeners');
-        
-        searchInput.addEventListener('input', function() {
-            console.log('Search input changed');
-            performSearchAndFilter();
-        });
-        
-        categorySelect.addEventListener('change', function() {
-            console.log('Category changed');
-            performSearchAndFilter();
-        });
-
-        // Test the function immediately
-        setTimeout(() => {
-            console.log('Initial test of search function');
-            performSearchAndFilter();
-        }, 100);
-    } else {
-        console.error('Search elements not found!');
+    // Event listeners for search & filter
+    if (searchInput) {
+        searchInput.addEventListener('input', performSearchAndFilter);
     }
+    if (categorySelect) {
+        categorySelect.addEventListener('change', performSearchAndFilter);
+    }
+    // initial run
+    setTimeout(performSearchAndFilter, 80);
 
-    // Keep your existing view toggle and global menu code here
+    // View toggle
     const gridBtn = document.getElementById('grid-view');
     const listBtn = document.getElementById('list-view');
-    const globalMenu = document.getElementById('global-more-menu');
-
-    // View toggle (persisted) - your existing code
     if (fileGrid && gridBtn && listBtn) {
         const saved = localStorage.getItem('fileViewMode') || 'grid';
         if (saved === 'list') {
@@ -363,171 +333,503 @@ document.addEventListener('DOMContentLoaded', function () {
             listBtn.classList.remove('active');
         }
 
-        gridBtn.addEventListener('click', function(e){ 
-            e.preventDefault(); 
-            gridBtn.classList.add('active'); 
-            listBtn.classList.remove('active'); 
-            fileGrid.classList.remove('list-view-mode'); 
-            fileGrid.classList.add('grid-view-mode'); 
-            localStorage.setItem('fileViewMode', 'grid'); 
+        gridBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            gridBtn.classList.add('active');
+            listBtn.classList.remove('active');
+            fileGrid.classList.remove('list-view-mode');
+            fileGrid.classList.add('grid-view-mode');
+            localStorage.setItem('fileViewMode', 'grid');
         });
-        
-        listBtn.addEventListener('click', function(e){ 
-            e.preventDefault(); 
-            listBtn.classList.add('active'); 
-            gridBtn.classList.remove('active'); 
-            fileGrid.classList.add('list-view-mode'); 
-            fileGrid.classList.remove('grid-view-mode'); 
-            localStorage.setItem('fileViewMode', 'list'); 
+
+        listBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+            fileGrid.classList.add('list-view-mode');
+            fileGrid.classList.remove('grid-view-mode');
+            localStorage.setItem('fileViewMode', 'list');
         });
     }
 
-    // Global menu logic - your existing code
-    if (fileGrid && globalMenu) {
-        fileGrid.addEventListener('click', function(e){
-            var btn = e.target.closest('.more-btn');
-            if (btn) {
-                e.stopPropagation();
-                var fileItem = btn.closest('.file-item');
-                if (!fileItem) return;
-                globalMenu.dataset.fileId = fileItem.getAttribute('data-file-id') || '';
-                globalMenu.dataset.fileName = fileItem.getAttribute('data-file-name') || '';
-                globalMenu.dataset.fileUrl = fileItem.getAttribute('data-file-url') || '';
-                globalMenu.classList.add('show'); 
-                globalMenu.style.display='block'; 
-                globalMenu.setAttribute('aria-hidden','false');
-                var rect = btn.getBoundingClientRect();
-                var menuW = globalMenu.offsetWidth, menuH = globalMenu.offsetHeight;
-                var left = rect.right - menuW; 
-                if (left < 8) left = 8; 
-                if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
-                var top = rect.bottom + 6; 
-                if (top + menuH > window.innerHeight - 8) { 
-                    top = rect.top - menuH - 6; 
-                    if (top < 8) top = 8; 
+    // Preview mode (thumbnail vs icon)
+    const thumbBtn = document.getElementById('thumb-view');
+    const iconBtn = document.getElementById('icon-view');
+    function determineIconPath(mime) {
+        if (!mime) return 'assets/icons/file.png';
+        if (mime.indexOf('image/') === 0) return 'assets/icons/img.png';
+        if (mime.indexOf('video/') === 0) return 'assets/icons/vid.png';
+        if (mime.indexOf('audio/') === 0) return 'assets/icons/music.png';
+        if (mime.indexOf('pdf') !== -1) return 'assets/icons/pdf.png';
+        if (mime.indexOf('zip') !== -1 || mime.indexOf('compressed') !== -1) return 'assets/icons/archive.png';
+        return 'assets/icons/file.png';
+    }
+
+    function applyPreviewMode(mode) {
+        try { localStorage.setItem('fileThumbnailMode', mode); } catch(e) {}
+        if (thumbBtn) thumbBtn.classList.toggle('active', mode === 'thumb');
+        if (iconBtn) iconBtn.classList.toggle('active', mode === 'icon');
+        const items = fileGrid ? fileGrid.querySelectorAll('.file-item') : [];
+        items.forEach(item => {
+            const thumb = item.querySelector('.file-thumbnail');
+            if (!thumb) return;
+            const mime = (item.getAttribute('data-file-mime') || '').toLowerCase();
+            const url = item.getAttribute('data-file-url') || '';
+            const iconPath = determineIconPath(mime);
+            if (mode === 'thumb') {
+                // prefer preview image when available
+                if (mime.indexOf('image/') === 0 && url) {
+                    thumb.innerHTML = `<img src="${url}" alt="${item.getAttribute('data-file-name')||''}" style="max-width:100%; height:auto; border-radius:8px;">`;
+                } else {
+                    thumb.innerHTML = `<img src="${iconPath}" alt="icon" style="max-width:60px; max-height:60px;">`;
                 }
-                globalMenu.style.left = left + 'px'; 
-                globalMenu.style.top = top + 'px';
-                fileItem.classList.add('menu-open');
+            } else {
+                // icon mode: always show the icon
+                thumb.innerHTML = `<img src="${iconPath}" alt="icon" style="max-width:60px; max-height:60px;">`;
             }
         });
+    }
 
-        document.addEventListener('click', function(ev){ 
-            if (!globalMenu.contains(ev.target) && !ev.target.closest('.more-btn')) { 
-                globalMenu.classList.remove('show'); 
-                globalMenu.style.display='none'; 
-                globalMenu.setAttribute('aria-hidden','true'); 
-                document.querySelectorAll('.file-item.menu-open').forEach(function(it){ 
-                    it.classList.remove('menu-open'); 
-                }); 
-            } 
+    // wire toggle buttons
+    if (thumbBtn) thumbBtn.addEventListener('click', function(e){ applyPreviewMode('thumb'); });
+    if (iconBtn) iconBtn.addEventListener('click', function(e){ applyPreviewMode('icon'); });
+
+    // apply saved mode
+    const savedThumbMode = localStorage.getItem('fileThumbnailMode') || 'thumb';
+    applyPreviewMode(savedThumbMode);
+
+    /* ========================
+       Double-click preview -> open modal
+       - Opens a reusable modal with preview depending on mime
+       - Reuses existing endpoints for actions (favorite/delete)
+       ======================== */
+    function showPreviewModalForItem(item) {
+        if (!item) return;
+        const id = item.getAttribute('data-file-id');
+        const name = item.getAttribute('data-file-name') || '';
+        const mime = (item.getAttribute('data-file-mime') || '').toLowerCase();
+        const url = item.getAttribute('data-file-url') || '';
+
+        const modal = document.getElementById('filePreviewModal');
+        if (!modal) return;
+
+        const titleEl = modal.querySelector('.preview-title');
+        const bodyEl = modal.querySelector('.preview-body');
+        const downloadBtn = modal.querySelector('.preview-download');
+        const favBtn = modal.querySelector('.preview-fav');
+        const deleteBtn = modal.querySelector('.preview-delete');
+
+        titleEl.textContent = name;
+        bodyEl.innerHTML = '';
+
+        if (mime.startsWith('image/')) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = name;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            img.loading = 'lazy';
+            bodyEl.appendChild(img);
+
+        } else if (mime.startsWith('video/')) {
+            const v = document.createElement('video');
+            v.src = url;
+            v.controls = true;
+            v.style.width = '100%';
+            bodyEl.appendChild(v);
+
+        } else if (mime.startsWith('audio/')) {
+            const a = document.createElement('audio');
+            a.src = url;
+            a.controls = true;
+            bodyEl.appendChild(a);
+
+        } else if (mime.includes('pdf') || /\.pdf$/i.test(url)) {
+            // PDF preview using PDF.js (render first page)
+            bodyEl.innerHTML = '<div class="text-center">Loading PDF preview…</div><canvas id="pdf-preview-canvas" style="width:100%;"></canvas>';
+            try {
+                if (!window.pdfjsLib) throw new Error('PDF.js not loaded');
+                const loadingTask = pdfjsLib.getDocument(url);
+                loadingTask.promise.then(function(pdf) {
+                    return pdf.getPage(1).then(function(page) {
+                        const viewport = page.getViewport({scale: 1.0});
+                        const canvas = document.getElementById('pdf-preview-canvas');
+                        const ratio = Math.min(1.6, (bodyEl.clientWidth || 800) / viewport.width);
+                        const scaled = page.getViewport({scale: ratio});
+                        canvas.width = scaled.width;
+                        canvas.height = scaled.height;
+                        const ctx = canvas.getContext('2d');
+                        page.render({canvasContext: ctx, viewport: scaled});
+                    });
+                }).catch(function(err){
+                    bodyEl.innerHTML = '<div class="text-danger">Gagal memuat PDF.</div>';
+                });
+            } catch (err) {
+                bodyEl.innerHTML = '<div class="text-danger">Preview PDF tidak tersedia.</div>';
+            }
+
+        } else if (mime.includes('sheet') || mime.includes('excel') || /\.(xlsx|xls|csv)$/i.test(url)) {
+            // Excel preview using SheetJS
+            bodyEl.innerHTML = '<div class="text-center">Loading spreadsheet preview…</div>';
+            fetch(url).then(r => r.arrayBuffer()).then(ab => {
+                try {
+                    const data = new Uint8Array(ab);
+                    const wb = XLSX.read(data, {type:'array'});
+                    const first = wb.SheetNames[0];
+                    const html = XLSX.utils.sheet_to_html(wb.Sheets[first]);
+                    bodyEl.innerHTML = '<div style="max-height:480px; overflow:auto;">' + html + '</div>';
+                } catch (e) {
+                    bodyEl.innerHTML = '<div class="text-danger">Gagal merender spreadsheet.</div>';
+                }
+            }).catch(()=>{ bodyEl.innerHTML = '<div class="text-danger">Gagal memuat file spreadsheet.</div>'; });
+
+        } else if (mime.includes('word') || /\.docx$/i.test(url)) {
+            // DOCX preview using Mammoth
+            bodyEl.innerHTML = '<div class="text-center">Loading document preview…</div>';
+            fetch(url).then(r => r.arrayBuffer()).then(ab => {
+                try {
+                    mammoth.convertToHtml({arrayBuffer: ab}).then(function(result){
+                        bodyEl.innerHTML = '<div style="max-height:560px; overflow:auto;">' + result.value + '</div>';
+                    }).catch(()=>{ bodyEl.innerHTML = '<div class="text-danger">Gagal merender dokumen.</div>'; });
+                } catch (e) {
+                    bodyEl.innerHTML = '<div class="text-danger">Gagal merender dokumen.</div>';
+                }
+            }).catch(()=>{ bodyEl.innerHTML = '<div class="text-danger">Gagal memuat file dokumen.</div>'; });
+
+        } else {
+            const wrap = document.createElement('div');
+            wrap.style.display = 'flex';
+            wrap.style.alignItems = 'center';
+            wrap.style.gap = '12px';
+            const icon = document.createElement('i');
+            icon.className = 'fa fa-file fa-3x';
+            icon.style.color = '#6c757d';
+            const info = document.createElement('div');
+            info.innerHTML = `<div style="font-weight:600">${name}</div><div class="text-muted small">${mime || 'Tipe file tidak diketahui'}</div>`;
+            wrap.appendChild(icon);
+            wrap.appendChild(info);
+            bodyEl.appendChild(wrap);
+        }
+
+        // wire download
+        downloadBtn.onclick = function () { window.open(url, '_blank'); };
+
+        // wire favorite toggle (optimistic UI)
+        favBtn.onclick = function () {
+            fetch('favorite.php', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: id })
+            }).then(r => r.json()).then(j => {
+                if (j.success) {
+                    const localFav = document.querySelector('.file-item[data-file-id="' + id + '"] .fav-btn');
+                    if (localFav) localFav.classList.toggle('active');
+                    Swal.fire({ toast:true, position:'bottom-end', icon:'success', title:j.message || 'Updated', showConfirmButton:false, timer:1200 });
+                    if (j.counts) updateCounts && updateCounts(j.counts);
+                } else {
+                    Swal.fire({ icon:'error', title:'Gagal', text: j.message || 'Gagal memperbarui favorit' });
+                }
+            }).catch(()=>{ Swal.fire({ icon:'error', title:'Network error' }); });
+        };
+
+        // wire delete (move to trash)
+        deleteBtn.onclick = function () {
+            if (!confirm(`Hapus "${name}"? File akan dipindahkan ke sampah.`)) return;
+            fetch('delete.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ file_id: id }) })
+            .then(r=>r.json()).then(j=>{
+                if (j.success) {
+                    const el = document.querySelector('.file-item[data-file-id="' + id + '"]');
+                    if (el) el.remove();
+                    const bs = bootstrap.Modal.getInstance(modal);
+                    if (bs) bs.hide();
+                    Swal.fire({ toast:true, position:'bottom-end', icon:'success', title:j.message || 'Terhapus', showConfirmButton:false, timer:1200 });
+                    if (j.counts) updateCounts && updateCounts(j.counts);
+                } else {
+                    Swal.fire({ icon:'error', title:'Gagal', text: j.message || 'Gagal menghapus file' });
+                }
+            }).catch(()=>{ Swal.fire({ icon:'error', title:'Network error' }); });
+        };
+
+        // show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    if (fileGrid) {
+        fileGrid.addEventListener('dblclick', function(e){
+            const item = e.target.closest('.file-item');
+            if (!item) return;
+            showPreviewModalForItem(item);
+        });
+    }
+
+    /* ========================
+       Helper functions for favorite and delete actions
+       ======================== */
+    function toggleFavorite(fileId, fileItem) {
+        if (!fileId || !fileItem) return;
+        const favBtn = fileItem.querySelector('.action-fav');
+        if (!favBtn) return;
+        
+        fetch('favorite.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId })
+        })
+        .then(r => r.json())
+        .then(j => {
+            if (j.success) {
+                if (j.is_favorite == 1) {
+                    favBtn.classList.add('active');
+                    const icon = favBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fa fa-star';
+                    }
+                    fileItem.classList.add('favorited');
+                    Swal.fire({icon: 'success', title: 'Ditambahkan ke favorit', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 2000});
+                } else {
+                    favBtn.classList.remove('active');
+                    const icon = favBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fa fa-star-o';
+                    }
+                    fileItem.classList.remove('favorited');
+                    Swal.fire({icon: 'success', title: 'Dihapus dari favorit', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 2000});
+                }
+            } else {
+                Swal.fire({icon: 'error', title: 'Gagal', text: j.message || 'Gagal toggle favorit', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 2000});
+            }
+        })
+        .catch(() => {
+            Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 2000});
+        });
+    }
+
+    function doDelete(fileId, fileItem) {
+        const fileName = fileItem.getAttribute('data-file-name') || 'file ini';
+        if (!confirm(`Hapus "${fileName}"? File akan dipindahkan ke sampah.`)) return;
+        fileItem.style.opacity = '0.6';
+        fetch('delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId })
+        })
+        .then(r => r.json())
+        .then(j => {
+            if (j.success) {
+                fileItem.remove();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'File berhasil dihapus',
+                    position: 'bottom-right',
+                    toast: true,
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            } else {
+                fileItem.style.opacity = '1';
+                alert(j.message || 'Gagal menghapus file');
+            }
+        })
+        .catch(() => {
+            fileItem.style.opacity = '1';
+            alert('Network error');
+        });
+    }
+
+    /* ========================
+       Global more menu & delegated actions
+       - clicking action-more opens positioned menu (global)
+       ======================== */
+    if (fileGrid && globalMenu) {
+        fileGrid.addEventListener('click', function(e){
+            // Handle action-fav button (favorite)
+            if (e.target.closest('.action-fav')) {
+                e.stopPropagation();
+                const fileItem = e.target.closest('.file-item');
+                if (fileItem) {
+                    const fileId = fileItem.getAttribute('data-file-id');
+                    toggleFavorite(fileId, fileItem);
+                }
+                return;
+            }
+
+            // Handle action-delete button (delete)
+            if (e.target.closest('.action-delete')) {
+                e.stopPropagation();
+                const fileItem = e.target.closest('.file-item');
+                if (fileItem) {
+                    const fileId = fileItem.getAttribute('data-file-id');
+                    doDelete(fileId, fileItem);
+                }
+                return;
+            }
+
+            const btn = e.target.closest('.action-more');
+            if (!btn) return;
+            e.stopPropagation();
+            const fileItem = btn.closest('.file-item');
+            if (!fileItem) return;
+            // populate dataset for menu
+            globalMenu.dataset.fileId = fileItem.getAttribute('data-file-id') || '';
+            globalMenu.dataset.fileName = fileItem.getAttribute('data-file-name') || '';
+            globalMenu.dataset.fileUrl = fileItem.getAttribute('data-file-url') || '';
+            // show menu positioned near button
+            globalMenu.classList.add('show');
+            globalMenu.style.display = 'block';
+            globalMenu.setAttribute('aria-hidden', 'false');
+            const rect = btn.getBoundingClientRect();
+            const menuW = globalMenu.offsetWidth || 180;
+            const menuH = globalMenu.offsetHeight || 150;
+            let left = rect.right - menuW;
+            if (left < 8) left = 8;
+            if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+            let top = rect.bottom + 6;
+            if (top + menuH > window.innerHeight - 8) {
+                top = rect.top - menuH - 6;
+                if (top < 8) top = 8;
+            }
+            globalMenu.style.left = left + 'px';
+            globalMenu.style.top = top + 'px';
+            fileItem.classList.add('menu-open');
+        });
+
+        // Click outside closes menu
+        document.addEventListener('click', function(ev) {
+            if (!globalMenu.contains(ev.target) && !ev.target.closest('.action-more')) {
+                globalMenu.classList.remove('show');
+                globalMenu.style.display = 'none';
+                globalMenu.setAttribute('aria-hidden','true');
+                document.querySelectorAll('.file-item.menu-open').forEach(function(it){
+                    it.classList.remove('menu-open');
+                });
+            }
         }, { passive: true });
 
-        globalMenu.addEventListener('click', function(e){ 
-            var action = e.target.closest('.more-item'); 
-            if (!action) return; 
-            e.stopPropagation(); 
-            var fileId = globalMenu.dataset.fileId || null; 
-            var fileName = globalMenu.dataset.fileName || ''; 
-            var fileItemEl = fileId ? document.querySelector('.file-item[data-file-id="' + fileId + '"]') : null; 
-            
-            if (action.classList.contains('download')) { 
-                if (!fileId) { 
-                    Swal.fire({icon: 'error', title: 'Error', text: 'File ID tidak ditemukan', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
-                    return; 
-                } 
-                var url = 'download.php?file_id=' + encodeURIComponent(fileId); 
-                var a = document.createElement('a'); 
-                a.href = url; 
-                a.download = fileName || ''; 
-                document.body.appendChild(a); 
-                a.click(); 
-                a.remove(); 
-                Swal.fire({icon: 'success', title: 'Berhasil', text: 'File berhasil diunduh: ' + fileName, position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
-            } else if (action.classList.contains('rename')) { 
-                var current = fileName || (fileItemEl && fileItemEl.getAttribute('data-file-name')) || ''; 
-                var newName = prompt('Ganti nama file menjadi:', current || ''); 
-                if (newName !== null && newName.trim() !== '') { 
+        // Actions inside the menu
+        globalMenu.addEventListener('click', function(e){
+            const action = e.target.closest('.more-item');
+            if (!action) return;
+            e.stopPropagation();
+            const fileId = globalMenu.dataset.fileId || null;
+            const fileName = globalMenu.dataset.fileName || '';
+            const fileItemEl = fileId ? document.querySelector('.file-item[data-file-id="' + fileId + '"]') : null;
+
+            if (action.classList.contains('download')) {
+                if (!fileId) {
+                    Swal.fire({icon: 'error', title: 'Error', text: 'File ID tidak ditemukan', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
+                    return;
+                }
+                const url = 'download.php?file_id=' + encodeURIComponent(fileId);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName || '';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                Swal.fire({icon: 'success', title: 'Berhasil', text: 'File berhasil diunduh: ' + fileName, position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
+            } else if (action.classList.contains('rename')) {
+                const current = fileName || (fileItemEl && fileItemEl.getAttribute('data-file-name')) || '';
+                const newName = prompt('Ganti nama file menjadi:', current || '');
+                if (newName !== null && newName.trim() !== '') {
                     fetch('rename.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ file_id: fileId, new_name: newName.trim() }) })
                     .then(r=>r.json())
-                    .then(j=>{ 
-                        if (j.success) { 
-                            if (fileItemEl) { 
+                    .then(j=>{
+                        if (j.success) {
+                            if (fileItemEl) {
                                 fileItemEl.setAttribute('data-file-name', j.new_name);
                                 fileItemEl.setAttribute('data-name', j.new_name.toLowerCase());
                                 const fileNameElement = fileItemEl.querySelector('.file-name');
                                 if (fileNameElement) {
                                     fileNameElement.textContent = j.new_name;
                                 }
-                            } 
-                            Swal.fire({icon: 'success', title: 'Berhasil', text: 'Nama file berhasil diubah menjadi: ' + j.new_name, position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
+                            }
+                            Swal.fire({icon: 'success', title: 'Berhasil', text: 'Nama file berhasil diubah menjadi: ' + j.new_name, position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
                         } else {
-                            Swal.fire({icon: 'error', title: 'Gagal', text: j.message||'Gagal mengubah nama file', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
+                            Swal.fire({icon: 'error', title: 'Gagal', text: j.message||'Gagal mengubah nama file', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
                         }
                     })
-                    .catch(()=>Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000})); 
-                } 
-            } else if (action.classList.contains('share')) { 
-                Swal.fire({icon: 'info', title: 'Info', text: 'Fungsi bagikan belum diimplementasikan di demo ini.', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
-            } else if (action.classList.contains('favorite-menu')) { 
-                if (!fileId) return; 
+                    .catch(()=>Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}));
+                }
+            } else if (action.classList.contains('share')) {
+                Swal.fire({icon: 'info', title: 'Info', text: 'Fungsi bagikan belum diimplementasikan di demo ini.', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
+            } else if (action.classList.contains('favorite-menu')) {
+                if (!fileId) return;
                 fetch('favorite.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ file_id: fileId }) })
                 .then(r=>r.json())
-                .then(j=>{ 
-                    if (j.success) { 
-                        if (fileItemEl) fileItemEl.classList.toggle('favorited', j.is_favorite == 1); 
-                        var msg = j.is_favorite == 1 ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit'; 
-                        Swal.fire({icon: 'success', title: 'Berhasil', text: msg, position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
+                .then(j=>{
+                    if (j.success) {
+                        if (fileItemEl) fileItemEl.classList.toggle('favorited', j.is_favorite == 1);
+                        const msg = j.is_favorite == 1 ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit';
+                        Swal.fire({icon: 'success', title: 'Berhasil', text: msg, position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
                     } else {
-                        Swal.fire({icon: 'error', title: 'Gagal', text: j.message||'Gagal', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
+                        Swal.fire({icon: 'error', title: 'Gagal', text: j.message||'Gagal', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
                     }
                 })
-                .catch(()=>Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000})); 
-            } else if (action.classList.contains('delete-menu')) { 
-                if (!fileId) return; 
+                .catch(()=>Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}));
+            } else if (action.classList.contains('delete-menu')) {
+                if (!fileId) return;
                 Swal.fire({
-                    title: 'Hapus File?', 
-                    text: 'File ini akan dipindahkan ke sampah', 
-                    icon: 'warning', 
-                    showCancelButton: true, 
-                    confirmButtonText: 'Ya, Hapus', 
-                    confirmButtonColor: '#d33', 
-                    cancelButtonText: 'Batal', 
+                    title: 'Hapus File?',
+                    text: 'File ini akan dipindahkan ke sampah',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Hapus',
+                    confirmButtonColor: '#d33',
+                    cancelButtonText: 'Batal',
                     position: 'bottom-right'
-                }).then(result=>{ 
-                    if (result.isConfirmed) { 
+                }).then(result=>{
+                    if (result.isConfirmed) {
                         fetch('delete.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ file_id: fileId }) })
                         .then(r=>r.json())
-                        .then(j=>{ 
-                            if (j.success) { 
-                                if (fileItemEl) fileItemEl.remove(); 
-                                Swal.fire({icon: 'success', title: 'Berhasil', text: 'File berhasil dihapus', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
+                        .then(j=>{
+                            if (j.success) {
+                                if (fileItemEl) fileItemEl.remove();
+                                Swal.fire({icon: 'success', title: 'Berhasil', text: 'File berhasil dihapus', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
                             } else {
-                                Swal.fire({icon: 'error', title: 'Gagal', text: j.message||'Gagal', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}); 
+                                Swal.fire({icon: 'error', title: 'Gagal', text: j.message||'Gagal', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000});
                             }
                         })
-                        .catch(()=>Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000})); 
-                    } 
-                }); 
-            } 
-            globalMenu.classList.remove('show'); 
-            globalMenu.style.display='none'; 
-            globalMenu.setAttribute('aria-hidden','true'); 
+                        .catch(()=>Swal.fire({icon: 'error', title: 'Error', text: 'Network error', position: 'bottom-right', toast: true, showConfirmButton: false, timer: 3000}));
+                    }
+                });
+            }
+            // hide menu after action
+            globalMenu.classList.remove('show');
+            globalMenu.style.display='none';
+            globalMenu.setAttribute('aria-hidden','true');
         });
     }
 
-    console.log('Search functionality initialized successfully');
-    // Cek apakah class hidden berfungsi
-document.querySelectorAll('.file-item').forEach(item => {
-    console.log(item.className, item.style.display);
-});
+    // Close global menus on ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.more-menu.show').forEach(m => { m.classList.remove('show'); m.style.display='none'; });
+        }
+    });
 
-// Force hide manual
-document.querySelectorAll('.file-item').forEach(item => {
-    item.style.display = 'none !important';
-});
+    console.log('Search functionality & UI handlers initialized successfully');
 });
 </script>
+
+<!-- File Preview Modal -->
+<div class="modal fade" id="filePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title preview-title">Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body preview-body" style="min-height:220px; display:flex; align-items:center; justify-content:center;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary preview-download"><i class="fa fa-download"></i> Download</button>
+                <button type="button" class="btn btn-outline-warning preview-fav"><i class="fa fa-star"></i> Favorit</button>
+                <button type="button" class="btn btn-outline-danger preview-delete"><i class="fa fa-trash"></i> Hapus</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Profile Modal -->
 <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">

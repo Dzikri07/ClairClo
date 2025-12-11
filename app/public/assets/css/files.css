@@ -23,15 +23,23 @@
 }
 
 .search-input {
-    min-width:240px;
-    max-width:100%;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    background:var(--card-bg);
-    border:1px solid var(--border);
-    padding:6px 10px;
-    border-radius:6px;
+    min-width:240px !important;
+    max-width:100% !important;
+    display:flex !important;
+    align-items:center !important;
+    gap:8px !important;
+    background:var(--card-bg) !important;
+    border:1px solid var(--border) !important;
+    padding:6px 10px !important;
+    border-radius:6px !important;
+}
+
+/* controls: input & select inside search-bar */
+.search-bar input,
+.search-bar select {
+    background:var(--card-bg) !important;
+    border:1px solid var(--border) !important;
+    color:var(--text-primary) !important;
 }
 
 /* category chips */
@@ -54,9 +62,9 @@
 }
 
 /* View toggle */
-.view-toggle { border:1px solid var(--border); border-radius:8px; background:#fff; display:inline-flex; padding:4px; }
-.view-toggle button { border:0; padding:6px 10px; cursor:pointer; background:transparent; color:var(--muted); border-radius:6px; }
-.view-toggle button.active { background:var(--primary); color:#fff; }
+.view-toggle { border:1px solid var(--border) !important; border-radius:8px !important; background:var(--card-bg) !important; display:inline-flex !important; padding:4px !important; }
+.view-toggle button { border:0 !important; padding:6px 10px !important; cursor:pointer !important; background:transparent !important; color:var(--muted) !important; border-radius:6px !important; }
+.view-toggle button.active { background:var(--primary) !important; color:#fff !important; }
 
 /* file grid/list */
 #file-grid { transition:all .15s ease; display:grid; gap:12px; }
